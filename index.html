@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Presensi Training Center</title>
+
+  <link rel="stylesheet" href="./style.css" />
+
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">TC</div>
+        <div>
+          <div class="title">Presensi Training Center</div>
+          <div class="sub">Face Recognition + GeoFencing</div>
+        </div>
+      </div>
+      <button id="btn-admin-open" class="btn ghost">Admin</button>
+    </header>
+
+    <main class="card">
+      <section class="pane active" id="pane-peserta">
+        <div class="grid2">
+          <div>
+            <label>Jenis Presensi</label>
+            <select id="mode">
+              <option value="training">Kegiatan Training</option>
+              <option value="gate">Izin Keluar–Masuk</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Status Lokasi</label>
+            <div class="pill" id="loc-status">Belum cek lokasi</div>
+          </div>
+        </div>
+
+        <div id="training-fields" class="box">
+          <div class="grid2">
+            <div>
+              <label>Jenis Pelatihan</label>
+              <select id="training_type">
+                <option value="">Pilih…</option>
+                <option>KLP1 AGRO</option>
+                <option>KLP1 MILL</option>
+                <option>KLP1 ADMN</option>
+                <option>2nd Stream</option>
+                <option>Uji Kompetensi</option>
+              </select>
+            </div>
+            <div>
+              <label>Kegiatan</label>
+              <select id="activity">
+                <option value="">Pilih…</option>
+                <option>Sesi Kelas</option>
+                <option>Field Day</option>
+                <option>Uji Kompetensi</option>
+                <option>Olahraga</option>
+                <option>Makan</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="material-wrap" class="mt">
+            <label>Materi (autosuggest)</label>
+            <input id="material" type="text" placeholder="Ketik beberapa huruf…"/>
+            <div id="suggest" class="suggest"></div>
+          </div>
+        </div>
+
+        <div id="gate-fields" class="box hidden">
+          <div class="grid2">
+            <div>
+              <label>Alasan</label>
+              <input id="gate_reason" type="text" placeholder="Ibadah / Berobat / Field Day / lainnya…"/>
+              <div class="hint">Cepat: <span class="chip" data-reason="Ibadah">Ibadah</span> <span class="chip" data-reason="Berobat">Berobat</span> <span class="chip" data-reason="Field Day">Field Day</span></div>
+            </div>
+            <div>
+              <label>Arah</label>
+              <div class="grid2">
+                <button id="btn-in" class="btn">Masuk</button>
+                <button id="btn-out" class="btn danger">Keluar</button>
+              </div>
+              <div class="hint">Masuk/Keluar akan menjalankan pemindaian + liveness.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="camera">
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="overlay"></canvas>
+        </div>
+
+        <div class="actions">
+          <button id="btn-checkloc" class="btn ghost">Cek Lokasi</button>
+          <button id="btn-presensi" class="btn primary" disabled>Presensi</button>
+        </div>
+
+        <div class="result" id="result"></div>
+        <div class="small mt2" id="device-info"></div>
+      </section>
+
+      <!-- ADMIN MODAL -->
+      <div class="modal hidden" id="admin-modal">
+        <div class="modal-card">
+          <div class="modal-head">
+            <div style="font-weight:900;">Admin Panel</div>
+            <button class="btn ghost" id="btn-admin-close">Tutup</button>
+          </div>
+
+          <!-- LOGIN -->
+          <section id="admin-login-pane">
+            <div class="box">
+              <label>PIN Admin</label>
+              <input id="admin-pin" type="password" placeholder="Masukkan PIN…"/>
+              <div class="actions">
+                <button class="btn primary" id="btn-admin-login">Login</button>
+                <button class="btn ghost" id="btn-admin-logout" disabled>Logout</button>
+              </div>
+              <div class="small" id="admin-session"></div>
+            </div>
+          </section>
+
+          <!-- ADMIN CONTENT -->
+          <section id="admin-pane" class="hidden">
+            <div class="tabs2">
+                <button class="tab2 active" data-atab="enroll">Enroll</button>
+                <button class="tab2" data-atab="rekap">Rekap</button>
+                <button class="tab2" data-atab="logs">Logs</button>
+                <button class="tab2" data-atab="settings">Settings</button>
+                <button class="tab2" data-atab="materi">Materi</button>
+            </div>
+
+            <!-- ENROLL -->
+            <div class="apane active" id="apane-enroll">
+              <div class="grid2">
+                <div>
+                  <label>NIK</label>
+                  <input id="a_nik" type="text" placeholder="NIK peserta"/>
+                </div>
+                <div>
+                  <label>Nama</label>
+                  <input id="a_nama" type="text" placeholder="Nama peserta"/>
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>Biodata (opsional)</label>
+                  <input id="a_bio" type="text" placeholder="Rayon/Divisi/Asal/Angkatan…"/>
+                </div>
+                <div>
+                  <label>Catatan</label>
+                  <input id="a_note" type="text" placeholder="Opsional"/>
+                </div>
+              </div>
+
+              <div class="camera">
+                <video id="a_video" autoplay muted playsinline></video>
+                <canvas id="a_overlay"></canvas>
+              </div>
+
+              <div class="actions">
+                <button id="btn-enroll" class="btn primary">Simpan + Rekam Wajah (Multi-shot)</button>
+              </div>
+              <div class="result" id="admin-result"></div>
+            </div>
+
+            <!-- REKAP -->
+            <div class="apane" id="apane-rekap">
+              <div class="grid2">
+                <div>
+                  <label>Tanggal Mulai</label>
+                  <input id="r_start" type="date"/>
+                </div>
+                <div>
+                  <label>Tanggal Akhir</label>
+                  <input id="r_end" type="date"/>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn primary" id="btn-rekap">Ambil Rekap</button>
+                <button class="btn" id="btn-export">Export CSV</button>
+              </div>
+
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Ringkasan</div>
+                <div class="small" id="rekap-summary">-</div>
+              </div>
+
+              <div class="grid2">
+                <div class="box">
+                  <div style="font-weight:900;margin-bottom:8px;">By Status</div>
+                  <div id="rekap-status" class="small">-</div>
+                </div>
+                <div class="box">
+                  <div style="font-weight:900;margin-bottom:8px;">By Activity</div>
+                  <div id="rekap-activity" class="small">-</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LOGS -->
+            <div class="apane" id="apane-logs">
+              <div class="grid2">
+                <div>
+                  <label>Tanggal Mulai</label>
+                  <input id="l_start" type="date"/>
+                </div>
+                <div>
+                  <label>Tanggal Akhir</label>
+                  <input id="l_end" type="date"/>
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>Limit (maks 2000)</label>
+                  <input id="l_limit" type="number" value="200"/>
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                  <button class="btn primary" id="btn-logs" style="width:100%;">Ambil Logs</button>
+                </div>
+              </div>
+
+              <div class="tablewrap">
+                <table class="tbl" id="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th><th>NIK</th><th>Nama</th><th>Mode</th><th>Activity</th><th>Materi</th><th>Gate</th><th>Status</th><th>Dist(m)</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+
+              <div class="small mt2">Tip: untuk audit device binding, lihat kolom <b>device_id</b> di export CSV.</div>
+            </div>
+
+            <!-- SETTINGS -->
+            <div class="apane" id="apane-settings">
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">GeoFence</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Latitude (center)</label>
+                    <input id="s_lat" type="number" step="0.000001" placeholder="contoh: 0.958933"/>
+                </div>
+                <div>
+                    <label>Longitude (center)</label>
+                    <input id="s_lng" type="number" step="0.000001" placeholder="contoh: 111.889729"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Radius (meter)</label>
+                    <input id="s_radius" type="number" step="1" placeholder="contoh: 200"/>
+                </div>
+                <div>
+                    <label>Face Threshold (euclidean)</label>
+                    <input id="s_threshold" type="number" step="0.01" placeholder="contoh: 0.52"/>
+                </div>
+                </div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-save-settings">Simpan Settings</button>
+                <button class="btn" id="btn-reload-settings">Reload</button>
+                </div>
+
+                <div class="small" id="settings-info">-</div>
+            </div>
+
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Ganti PIN Admin</div>
+
+                <div class="grid2">
+                <div>
+                    <label>PIN Lama</label>
+                    <input id="pin_old" type="password" placeholder="PIN lama"/>
+                </div>
+                <div>
+                    <label>PIN Baru</label>
+                    <input id="pin_new" type="password" placeholder="PIN baru (min 4)"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Ulangi PIN Baru</label>
+                    <input id="pin_new2" type="password" placeholder="ulang PIN baru"/>
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                    <button class="btn danger" id="btn-change-pin" style="width:100%;">Simpan PIN Baru</button>
+                </div>
+                </div>
+
+                <div class="small" id="pin-info">-</div>
+            </div>
+            </div>
+
+            <!-- MATERI (CRUD) -->
+            <div class="apane" id="apane-materi">
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Tambah / Edit Materi</div>
+                <input type="hidden" id="m_id" value=""/>
+
+                <div class="grid2">
+                <div>
+                    <label>Nama Materi</label>
+                    <input id="m_name" type="text" placeholder="contoh: Pembibitan"/>
+                </div>
+                <div>
+                    <label>Tags (opsional; pisahkan ; atau ,)</label>
+                    <input id="m_tags" type="text" placeholder="contoh: agro;dasar"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Aktif?</label>
+                    <select id="m_active">
+                    <option value="TRUE">TRUE</option>
+                    <option value="FALSE">FALSE</option>
+                    </select>
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:10px;">
+                    <button class="btn primary" id="btn-m-save" style="width:100%;">Simpan</button>
+                    <button class="btn" id="btn-m-reset" style="width:100%;">Reset</button>
+                </div>
+                </div>
+
+                <div class="small" id="materi-info">-</div>
+            </div>
+
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Daftar Materi</div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-m-refresh">Refresh List</button>
+                </div>
+
+                <div class="tablewrap">
+                <table class="tbl" id="materi-table">
+                    <thead>
+                    <tr>
+                        <th>Nama</th><th>Tags</th><th>Active</th><th>Aksi</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                </div>
+
+                <div class="small mt2">Tip: Materi yang <b>active=TRUE</b> yang muncul di autosuggest peserta.</div>
+            </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <span class="small">© Training Center • Presensi</span>
+    </footer>
+  </div>
+
+  <script>// kecil untuk toggle modal
+    function show(el){ el.classList.remove('hidden'); }
+    function hide(el){ el.classList.add('hidden'); }</script>
+  <script src="./app.js"></script>
+</body>
+</html>
