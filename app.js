@@ -195,8 +195,9 @@ async function runLiveness(videoEl, durationMs=3500){
 /* =========================
    Geo + Config
    ========================= */
-async function loadConfig(){
-  const r = await api('config', {});
+async function loadConfig(force=false){
+  if (!force && State.cfg && State.cfg.ok) return;
+  const r = await api('config', { t: Date.now() }); // cache buster
   if (r.ok) State.cfg = r;
 }
 
@@ -232,7 +233,7 @@ function getLocation(){
 }
 
 async function checkLocation(){
-  if (!State.cfg) await loadConfig();
+  await loadConfig(true);
   const pos = await getLocation();
   const lat = pos.coords.latitude;
   const lng = pos.coords.longitude;
@@ -434,6 +435,7 @@ async function doEnroll(){
       UI.setAdminResult(r.error || 'Gagal enroll', false);
     }
   } catch(err){
+    if (handleAdminAuthError_(err)) return;
     UI.setAdminResult(String(err?.message || err), false);
   }
 }
@@ -443,6 +445,38 @@ async function doEnroll(){
    ========================= */
 function isAdminSessionValid(){
   return !!State.adminToken && Date.now() < State.adminExp;
+}
+
+function forceAdminRelogin(msg){
+  State.adminToken = '';
+  State.adminExp = 0;
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_exp');
+
+  UI.setAdminResult(msg || 'Sesi admin tidak valid. Silakan login ulang.', false);
+
+  // balikkan UI ke pane login jika modal sedang terbuka
+  try{
+    const paneAdmin = $('#admin-pane');
+    const paneLogin = $('#admin-login-pane');
+    if (paneAdmin) paneAdmin.classList.add('hidden');
+    if (paneLogin) paneLogin.classList.remove('hidden');
+
+    const btnLogout = $('#btn-admin-logout');
+    if (btnLogout) btnLogout.disabled = true;
+
+    const ses = $('#admin-session');
+    if (ses) ses.textContent = '';
+  } catch(e){}
+}
+
+function handleAdminAuthError_(err){
+  const m = String(err?.message || err || '');
+  if (/Token admin tidak valid|Sesi admin habis|Admin token missing|Admin belum login/i.test(m)){
+    forceAdminRelogin(m);
+    return true;
+  }
+  return false;
 }
 
 async function adminLogin(){
@@ -508,6 +542,7 @@ async function adminRekap(){
     $('#rekap-activity').innerHTML = Object.entries(r.byActivity||{})
       .map(([k,v])=>`• ${escapeHtml(k)}: <b>${v}</b>`).join('<br/>') || '-';
   } catch(e){
+    if (handleAdminAuthError_(e)) return;
     $('#rekap-summary').textContent = String(e.message || e);
   }
 }
@@ -536,7 +571,8 @@ async function adminLogs(){
         <td>${escapeHtml(String(x.distance_m||''))}</td>
       </tr>
     `).join('');
-  } catch(e){
+    } catch(e){
+    if (handleAdminAuthError_(e)) return;
     alert(String(e.message || e));
   }
 }
@@ -560,7 +596,8 @@ async function adminExportCsv(){
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-  } catch(e){
+    } catch(e){
+    if (handleAdminAuthError_(e)) return;
     alert(String(e.message || e));
   }
 }
@@ -608,9 +645,13 @@ async function adminSaveSettings(){
 
     $('#settings-info').textContent = `✅ Tersimpan: ${new Date().toLocaleString()}`;
     UI.setAdminResult('Settings berhasil disimpan.', true);
+
   } catch(e){
-    $('#settings-info').textContent = '❌ ' + String(e.message || e);
-    UI.setAdminResult(String(e.message || e), false);
+    if (handleAdminAuthError_(e)) return;
+
+    const m = String(e.message || e);
+    $('#settings-info').textContent = '❌ ' + m;
+    UI.setAdminResult(m, false);
   }
 }
 
@@ -635,8 +676,10 @@ async function adminChangePin(){
     $('#pin-info').textContent = '✅ PIN berhasil diperbarui.';
     UI.setAdminResult('PIN berhasil diperbarui.', true);
   } catch(e){
-    $('#pin-info').textContent = '❌ ' + String(e.message || e);
-    UI.setAdminResult(String(e.message || e), false);
+    if (handleAdminAuthError_(e)) return;
+    const m = String(e.message || e);
+    $('#pin-info').textContent = '❌ ' + m;
+    UI.setAdminResult(m, false);
   }
 }
 
@@ -690,15 +733,20 @@ function renderMateriTable(items){
 async function adminLoadMateri(){
   try{
     if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+
     const r = await api('adminMaterialsList', { admin_token: State.adminToken });
     if (!r.ok) throw new Error(r.error || 'Gagal load materi');
 
     State._materiItems = r.items || [];
     renderMateriTable(State._materiItems);
     $('#materi-info').textContent = `Loaded: ${State._materiItems.length} item`;
+
   } catch(e){
-    $('#materi-info').textContent = '❌ ' + String(e.message || e);
-    UI.setAdminResult(String(e.message || e), false);
+    if (handleAdminAuthError_(e)) return;
+
+    const m = String(e.message || e);
+    $('#materi-info').textContent = '❌ ' + m;
+    UI.setAdminResult(m, false);
   }
 }
 
@@ -718,8 +766,10 @@ async function adminSaveMateri(){
     resetMateriForm();
     await adminLoadMateri(); // refresh
   } catch(e){
-    $('#materi-info').textContent = '❌ ' + String(e.message || e);
-    UI.setAdminResult(String(e.message || e), false);
+    if (handleAdminAuthError_(e)) return;
+    const m = String(e.message || e);
+    $('#materi-info').textContent = '❌ ' + m;
+    UI.setAdminResult(m, false);
   }
 }
 
@@ -732,8 +782,10 @@ async function adminDeleteMateri(id){
     $('#materi-info').textContent = '✅ ' + (r.message || 'Terhapus');
     await adminLoadMateri();
   } catch(e){
-    $('#materi-info').textContent = '❌ ' + String(e.message || e);
-    UI.setAdminResult(String(e.message || e), false);
+    if (handleAdminAuthError_(e)) return;
+    const m = String(e.message || e);
+    $('#materi-info').textContent = '❌ ' + m;
+    UI.setAdminResult(m, false);
   }
 }
 
