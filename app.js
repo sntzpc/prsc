@@ -21,7 +21,12 @@ const State = {
   deviceId: null,
 
   adminToken: localStorage.getItem('admin_token') || '',
-  adminExp: Number(localStorage.getItem('admin_exp') || 0)
+  adminExp: Number(localStorage.getItem('admin_exp') || 0),
+  cam: {
+    pesertaFacing: localStorage.getItem('cam_peserta') || 'user',   // 'user' | 'environment'
+    adminFacing:   localStorage.getItem('cam_admin')   || 'user',
+    streams: { peserta:null, admin:null }
+  }
 };
 
 // ✅ Ganti dengan URL Deploy Web App Anda (exec)
@@ -140,24 +145,69 @@ function headTurnScore(landmarks){
   return (noseTip.x - midEyeX) / eyeDist;
 }
 
-async function runLiveness(videoEl, durationMs=3500){
+function getLivenessCfg(){
+  const def = {
+    enabled: true,
+    mode: 'both',          // 'blink' | 'turn' | 'both'
+    ear_low: 0.18,
+    ear_high: 0.23,
+    turn_thresh: 0.18,
+    duration_ms: 3500
+  };
+  const L = (State.cfg && State.cfg.liveness) ? State.cfg.liveness : null;
+  if (!L) return def;
+
+  return {
+    enabled: String(L.enabled ?? 'TRUE').toUpperCase() !== 'FALSE',
+    mode: String(L.mode || 'both').toLowerCase(),
+    ear_low: Number(L.ear_low ?? def.ear_low),
+    ear_high: Number(L.ear_high ?? def.ear_high),
+    turn_thresh: Number(L.turn_thresh ?? def.turn_thresh),
+    duration_ms: Number(L.duration_ms ?? def.duration_ms)
+  };
+}
+
+async function runLiveness(videoEl, durationMs){
   if (!State.modelsReady) await loadModels();
 
-  const challenge = (Math.random() < 0.5) ? 'blink' : (Math.random() < 0.5 ? 'turn_left' : 'turn_right');
-  UI.setResult(`Liveness: ${challenge === 'blink' ? 'KEDIPKAN mata' : (challenge === 'turn_left' ? 'Putar kepala KIRI' : 'Putar kepala KANAN')}…`, true);
+  const cfg = getLivenessCfg();
+  const dur = Number(durationMs || cfg.duration_ms || 3500);
+
+  // jika dimatikan dari server
+  if (!cfg.enabled){
+    UI.setResult('Liveness dimatikan oleh admin. (Skip)', true);
+    return { ok:true, type:'disabled', info:{ enabled:false } };
+  }
+
+  // tentukan challenge sesuai mode
+  let challenge = 'blink';
+  if (cfg.mode === 'blink') {
+    challenge = 'blink';
+  } else if (cfg.mode === 'turn') {
+    challenge = (Math.random() < 0.5) ? 'turn_left' : 'turn_right';
+  } else {
+    // both
+    challenge = (Math.random() < 0.5) ? 'blink' : ((Math.random() < 0.5) ? 'turn_left' : 'turn_right');
+  }
+
+  UI.setResult(
+    `Liveness: ${
+      challenge === 'blink' ? 'KEDIPKAN mata'
+      : (challenge === 'turn_left' ? 'Putar kepala KIRI' : 'Putar kepala KANAN')
+    }…`,
+    true
+  );
 
   const start = Date.now();
   let blinked = false;
   let earLowSeen = false;
-
   let turned = false;
 
-  // threshold sederhana (tuning)
-  const EAR_LOW = 0.18;
-  const EAR_HIGH = 0.23;
-  const TURN_THRESH = 0.18; // ~18% dari jarak mata
+  const EAR_LOW = cfg.ear_low;
+  const EAR_HIGH = cfg.ear_high;
+  const TURN_THRESH = cfg.turn_thresh;
 
-  while (Date.now() - start < durationMs){
+  while (Date.now() - start < dur){
     const det = await detectOnce(videoEl);
     if (!det || !det.landmarks){
       await sleep(80);
@@ -180,16 +230,16 @@ async function runLiveness(videoEl, durationMs=3500){
     if (challenge === 'turn_right' && score > TURN_THRESH) turned = true;
 
     if (challenge === 'blink' && blinked) {
-      return { ok:true, type:'blink', info:{ ear } };
+      return { ok:true, type:'blink', info:{ ear, cfg } };
     }
     if (challenge !== 'blink' && turned) {
-      return { ok:true, type:'turn', info:{ dir: challenge, score } };
+      return { ok:true, type:'turn', info:{ dir: challenge, score, cfg } };
     }
 
     await sleep(90);
   }
 
-  return { ok:false, type:'timeout', info:{ challenge } };
+  return { ok:false, type:'timeout', info:{ challenge, cfg } };
 }
 
 /* =========================
@@ -292,14 +342,55 @@ function escapeHtml(s){
 /* =========================
    Camera
    ========================= */
-async function startCamera(videoEl){
+async function startCamera(videoEl, facingMode='user'){
+  // stop stream lama jika ada
+  try{
+    const old = videoEl.srcObject;
+    if (old && old.getTracks) old.getTracks().forEach(t=>t.stop());
+  } catch(e){}
+
   const stream = await navigator.mediaDevices.getUserMedia({
-    video:{ facingMode:'user', width:{ideal:1280}, height:{ideal:720} },
+    video:{ facingMode, width:{ideal:1280}, height:{ideal:720} },
     audio:false
   });
+
   videoEl.srcObject = stream;
   await new Promise(r=> videoEl.onloadedmetadata=r);
   return stream;
+}
+
+async function switchCamera(kind, facing){
+  // kind: 'peserta' | 'admin'
+  const isPeserta = kind === 'peserta';
+  const videoEl = isPeserta ? $('#video') : $('#a_video');
+
+  const mode = (facing === 'environment') ? 'environment' : 'user';
+  const stream = await startCamera(videoEl, mode);
+
+  if (isPeserta){
+    State.cam.pesertaFacing = mode;
+    localStorage.setItem('cam_peserta', mode);
+    State.cam.streams.peserta = stream;
+  } else {
+    State.cam.adminFacing = mode;
+    localStorage.setItem('cam_admin', mode);
+    State.cam.streams.admin = stream;
+  }
+}
+
+function toggleFacing(mode){
+  return (mode === 'environment') ? 'user' : 'environment';
+}
+
+async function toggleCamera(kind){
+  // kind: 'peserta' | 'admin'
+  if (kind === 'peserta'){
+    const next = toggleFacing(State.cam.pesertaFacing);
+    await switchCamera('peserta', next);
+  } else {
+    const next = toggleFacing(State.cam.adminFacing);
+    await switchCamera('admin', next);
+  }
 }
 
 async function capturePhotoDataURL(videoEl){
@@ -617,6 +708,16 @@ async function adminLoadSettings(){
     $('#s_radius').value = Number(r.geofence?.radius_m ?? '');
     $('#s_threshold').value = Number(r.threshold ?? '');
 
+        // liveness
+    const L = r.liveness || {};
+    $('#s_live_enabled').value = (String(L.enabled ?? 'TRUE').toUpperCase() === 'FALSE') ? 'FALSE' : 'TRUE';
+    $('#s_live_mode').value = String(L.mode || 'both').toLowerCase();
+
+    $('#s_ear_low').value = Number(L.ear_low ?? 0.18);
+    $('#s_ear_high').value = Number(L.ear_high ?? 0.23);
+    $('#s_turn_thresh').value = Number(L.turn_thresh ?? 0.18);
+    $('#s_live_duration').value = Number(L.duration_ms ?? 3500);
+
     $('#settings-info').textContent = `Loaded: ${new Date().toLocaleString()}`;
   } catch(e){
     $('#settings-info').textContent = String(e.message || e);
@@ -631,11 +732,22 @@ async function adminSaveSettings(){
     const geofence_lng = Number($('#s_lng').value);
     const geofence_radius_m = Number($('#s_radius').value);
     const face_threshold = Number($('#s_threshold').value);
+    const liveness_enabled = ($('#s_live_enabled').value || 'TRUE') === 'TRUE';
+    const liveness_mode = ($('#s_live_mode').value || 'both');
+
+    const ear_low = Number($('#s_ear_low').value);
+    const ear_high = Number($('#s_ear_high').value);
+    const turn_thresh = Number($('#s_turn_thresh').value);
+    const liveness_duration_ms = Number($('#s_live_duration').value);
 
     const r = await api('adminUpdateSettings', {
       admin_token: State.adminToken,
       geofence_lat, geofence_lng, geofence_radius_m,
-      face_threshold
+      face_threshold, liveness_enabled,
+      liveness_mode,
+      ear_low, ear_high,
+      turn_thresh,
+      liveness_duration_ms
     });
 
     if (!r.ok) throw new Error(r.error || 'Gagal simpan settings');
@@ -875,6 +987,13 @@ function initAdminModal(){
   $('#btn-admin-close').addEventListener('click', ()=> hide(modal));
   modal.addEventListener('click', (e)=>{ if (e.target === modal) hide(modal); });
 
+    // camera toggle admin (enroll)
+    const btnAdminRotate = $('#btn-a-cam-rotate');
+  if (btnAdminRotate){
+    btnAdminRotate.addEventListener('click', ()=> toggleCamera('admin'));
+  }
+
+
   $('#btn-admin-login').addEventListener('click', adminLogin);
   $('#btn-admin-logout').addEventListener('click', adminLogout);
 
@@ -908,6 +1027,13 @@ function initAdminModal(){
   $('#btn-m-refresh').addEventListener('click', adminLoadMateri);
   $('#btn-m-save').addEventListener('click', adminSaveMateri);
   $('#btn-m-reset').addEventListener('click', ()=>{ resetMateriForm(); $('#materi-info').textContent='-'; });
+
+  // camera toggle peserta
+  const btnPesertaRotate = $('#btn-cam-rotate');
+  if (btnPesertaRotate){
+    btnPesertaRotate.addEventListener('click', ()=> toggleCamera('peserta'));
+  }
+
 }
 
 async function main(){
@@ -925,10 +1051,12 @@ async function main(){
   $('#btn-presensi').addEventListener('click', doPresensi);
 
   // camera peserta + admin
-  await startCamera($('#video'));
-  await startCamera($('#a_video'));
+  // load config dulu (agar liveness/threshold/geofence siap)
+  await loadConfig(true);
 
-  await loadConfig();
+  // camera peserta + admin sesuai setting terakhir
+  await switchCamera('peserta', State.cam.pesertaFacing);
+  await switchCamera('admin', State.cam.adminFacing);
   updateLocPill();
   validateEnablePresensi();
 

@@ -36,6 +36,7 @@
           <div>
             <label>Status Lokasi</label>
             <div class="pill" id="loc-status">Belum cek lokasi</div>
+            <button id="btn-checkloc" class="btn ghost">Cek Lokasi</button>
           </div>
         </div>
 
@@ -90,17 +91,25 @@
           </div>
         </div>
 
+        <div class="result" id="result"></div>
+
         <div class="camera">
-          <video id="video" autoplay muted playsinline></video>
-          <canvas id="overlay"></canvas>
-        </div>
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+
+            <!-- ✅ tombol rotasi kamera (peserta) -->
+            <button id="btn-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
+                <!-- icon rotate (inline SVG) -->
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
+                </svg>
+            </button>
+            </div>
 
         <div class="actions">
-          <button id="btn-checkloc" class="btn ghost">Cek Lokasi</button>
           <button id="btn-presensi" class="btn primary" disabled>Presensi</button>
         </div>
 
-        <div class="result" id="result"></div>
         <div class="small mt2" id="device-info"></div>
       </section>
 
@@ -158,10 +167,17 @@
                 </div>
               </div>
 
-              <div class="camera">
+            <div class="camera">
                 <video id="a_video" autoplay muted playsinline></video>
                 <canvas id="a_overlay"></canvas>
-              </div>
+
+                <!-- ✅ tombol rotasi kamera (admin enroll) -->
+                <button id="btn-a-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
+                    </svg>
+                </button>
+                </div>
 
               <div class="actions">
                 <button id="btn-enroll" class="btn primary">Simpan + Rekam Wajah (Multi-shot)</button>
@@ -273,6 +289,49 @@
 
                 <div class="small" id="settings-info">-</div>
             </div>
+
+            <div class="mt" style="font-weight:900;margin-bottom:8px;">Liveness Check</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Aktifkan Liveness?</label>
+                    <select id="s_live_enabled">
+                    <option value="TRUE">TRUE</option>
+                    <option value="FALSE">FALSE</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Mode Liveness</label>
+                    <select id="s_live_mode">
+                    <option value="both">Keduanya (Blink / Gerakan)</option>
+                    <option value="blink">Kedipan Saja</option>
+                    <option value="turn">Gerakan Saja</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>EAR Low (blink start)</label>
+                    <input id="s_ear_low" type="number" step="0.01" placeholder="contoh: 0.18"/>
+                </div>
+                <div>
+                    <label>EAR High (blink end)</label>
+                    <input id="s_ear_high" type="number" step="0.01" placeholder="contoh: 0.23"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Turn Threshold</label>
+                    <input id="s_turn_thresh" type="number" step="0.01" placeholder="contoh: 0.18"/>
+                </div>
+                <div>
+                    <label>Durasi Liveness (ms)</label>
+                    <input id="s_live_duration" type="number" step="100" placeholder="contoh: 3500"/>
+                </div>
+                </div>
 
             <div class="box">
                 <div style="font-weight:900;margin-bottom:8px;">Ganti PIN Admin</div>
