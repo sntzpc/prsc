@@ -309,6 +309,32 @@
                 </div>
                 </div>
 
+                <!-- ✅ Device Detection / Binding -->
+                <div class="box">
+                <div class="mt" style="font-weight:900;margin-bottom:8px;">Deteksi Device (Binding)</div>
+
+                <div class="grid2">
+                    <div>
+                    <label>Aktifkan Deteksi Device?</label>
+                    <select id="s_devdet_enabled">
+                        <option value="TRUE">TRUE</option>
+                        <option value="FALSE">FALSE</option>
+                    </select>
+                    <div class="hint small" style="margin-top:8px;">
+                        Jika FALSE: presensi tetap wajib geo-fence. Status akan menjadi
+                        <b>OK_DEFDEVICE</b> jika device sesuai default, atau <b>OK_ALTDEVICE</b> jika berbeda.
+                    </div>
+                    </div>
+
+                    <div>
+                    <label>Catatan</label>
+                    <div class="small">
+                        Jika TRUE: device wajib sama dengan default yang tersimpan di sheet <b>users.device_id</b>.
+                    </div>
+                    </div>
+                </div>
+                </div>
+
                 <div class="actions">
                 <button class="btn primary" id="btn-save-settings">Simpan Settings</button>
                 <button class="btn" id="btn-reload-settings">Reload</button>

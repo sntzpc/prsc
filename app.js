@@ -169,6 +169,19 @@ function getLivenessCfg(){
   };
 }
 
+/* =========================
+   DEVICE DETECTION CFG
+   ========================= */
+function getDeviceDetectCfg(){
+  const def = { enabled: true };
+  const D = (State.cfg && State.cfg.device_detect) ? State.cfg.device_detect : null;
+  if (!D) return def;
+
+  return {
+    enabled: String(D.enabled ?? 'TRUE').toUpperCase() !== 'FALSE'
+  };
+}
+
 async function runLiveness(videoEl, durationMs){
   if (!State.modelsReady) await loadModels();
 
@@ -671,6 +684,7 @@ async function doPresensi(){
       UI.setResult(
         `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
          Jarak center: ${Math.round(r.distance_m)} m<br/>
+         Deteksi Device: <b>${r.device_detect_enabled ? 'ON' : 'OFF'}</b> • Status: <b>${escapeHtml(r.status || '')}</b><br/>
          ${r.device_bound ? '✅ Device berhasil diikat (binding) pertama kali.' : ''}`,
         true
       );
@@ -926,6 +940,10 @@ async function adminLoadSettings(){
     $('#s_turn_thresh').value = Number(L.turn_thresh ?? 0.18);
     $('#s_live_duration').value = Number(L.duration_ms ?? 3500);
 
+        // ✅ device detect
+    const D = r.device_detect || {};
+    $('#s_devdet_enabled').value = (String(D.enabled ?? 'TRUE').toUpperCase() === 'FALSE') ? 'FALSE' : 'TRUE';
+
     $('#settings-info').textContent = `Loaded: ${new Date().toLocaleString()}`;
   } catch(e){
     $('#settings-info').textContent = String(e.message || e);
@@ -940,6 +958,7 @@ async function adminSaveSettings(){
     const geofence_lng = Number($('#s_lng').value);
     const geofence_radius_m = Number($('#s_radius').value);
     const face_threshold = Number($('#s_threshold').value);
+
     const liveness_enabled = ($('#s_live_enabled').value || 'TRUE') === 'TRUE';
     const liveness_mode = ($('#s_live_mode').value || 'both');
 
@@ -948,14 +967,21 @@ async function adminSaveSettings(){
     const turn_thresh = Number($('#s_turn_thresh').value);
     const liveness_duration_ms = Number($('#s_live_duration').value);
 
+    // ✅ FIX UTAMA: definisikan variabelnya dulu (sebelumnya tidak ada)
+    const device_detect_enabled = ($('#s_devdet_enabled').value || 'TRUE') === 'TRUE';
+
     const r = await api('adminUpdateSettings', {
       admin_token: State.adminToken,
       geofence_lat, geofence_lng, geofence_radius_m,
-      face_threshold, liveness_enabled,
+      face_threshold,
+      liveness_enabled,
       liveness_mode,
       ear_low, ear_high,
       turn_thresh,
-      liveness_duration_ms
+      liveness_duration_ms,
+
+      // ✅ nama field ini sesuai backend (adminUpdateSettings_ membaca body.device_detect_enabled)
+      device_detect_enabled
     });
 
     if (!r.ok) throw new Error(r.error || 'Gagal simpan settings');
