@@ -14,6 +14,8 @@ const UI = {
 const State = {
   cfg: null,
   loc: { lat:null, lng:null, accuracy_m:null, distance_m:null, inFence:false },
+  locCheckedAt: 0,
+  locError: '',
   lastTrainingType: localStorage.getItem('lastTrainingType') || '',
   lastActivity: localStorage.getItem('lastActivity') || '',
   gateDirection: null,
@@ -264,38 +266,95 @@ function haversineM(lat1,lng1,lat2,lng2){
 function updateLocPill(){
   const pill = $('#loc-status');
   const L = State.loc;
-  if (!isFinite(L.distance_m)){
-    pill.textContent = 'Belum cek lokasi';
+
+  // ✅ jika ada error lokasi (izin ditolak, timeout, dll)
+  if (State.locError){
+    pill.textContent = 'Lokasi belum diizinkan / error';
     pill.style.borderStyle = 'dashed';
     return;
   }
-  pill.textContent = L.inFence ? `Di area (${Math.round(L.distance_m)} m)` : `Di luar area (${Math.round(L.distance_m)} m)`;
+
+  if (!isFinite(L.distance_m)){
+    pill.textContent = 'Sedang cek lokasi…';
+    pill.style.borderStyle = 'dashed';
+    return;
+  }
+
+  pill.textContent = L.inFence
+    ? `Di area (${Math.round(L.distance_m)} m)`
+    : `Di luar area (${Math.round(L.distance_m)} m)`;
+
   pill.style.borderStyle = 'solid';
 }
 
-function getLocation(){
+function getLocation({ maximumAge=15000 } = {}){
   return new Promise((resolve, reject)=>{
     if (!navigator.geolocation) return reject(new Error('Geolocation tidak didukung'));
     navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy:true, timeout:15000, maximumAge:0
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge
     });
   });
 }
 
-async function checkLocation(){
-  await loadConfig(true);
-  const pos = await getLocation();
-  const lat = pos.coords.latitude;
-  const lng = pos.coords.longitude;
-  const acc = pos.coords.accuracy || 0;
+/**
+ * checkLocation(opts)
+ * - force: paksa ambil GPS baru
+ * - silent: jangan throw ke UI (dipakai saat auto-check on load)
+ * - maxAgeMs: cache umur GPS yg boleh dipakai
+ */
+async function checkLocation(opts = {}){
+  const force = !!opts.force;
+  const silent = !!opts.silent;
+  const maxAgeMs = Number(opts.maxAgeMs ?? 45000); // ✅ cache singkat 45 detik
 
-  const c = State.cfg.geofence.center;
-  const d = haversineM(c.lat, c.lng, lat, lng);
-  const inFence = d <= State.cfg.geofence.radius_m;
+  try{
+    await loadConfig(true);
 
-  State.loc = { lat, lng, accuracy_m:acc, distance_m:d, inFence };
-  updateLocPill();
-  validateEnablePresensi();
+    // ✅ gunakan hasil terakhir kalau masih fresh (menghindari prompt/ambil ulang)
+    const age = Date.now() - (State.locCheckedAt || 0);
+    if (!force && isFinite(State.loc.distance_m) && age < maxAgeMs){
+      updateLocPill();
+      validateEnablePresensi();
+      return State.loc;
+    }
+
+    const pos = await getLocation({ maximumAge: force ? 0 : Math.min(maxAgeMs, 30000) });
+
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const acc = pos.coords.accuracy || 0;
+
+    const c = State.cfg.geofence.center;
+    const d = haversineM(c.lat, c.lng, lat, lng);
+    const inFence = d <= State.cfg.geofence.radius_m;
+
+    State.loc = { lat, lng, accuracy_m:acc, distance_m:d, inFence };
+    State.locCheckedAt = Date.now();
+    State.locError = '';
+
+    updateLocPill();
+    validateEnablePresensi();
+    return State.loc;
+
+  } catch(err){
+    const msg = String(err?.message || err || 'Gagal cek lokasi');
+
+    // ✅ simpan error agar UI tahu statusnya
+    State.locError = msg;
+
+    // update pill agar user paham kenapa belum siap
+    const pill = $('#loc-status');
+    if (pill){
+      pill.textContent = 'Lokasi belum tersedia';
+      pill.style.borderStyle = 'dashed';
+    }
+    validateEnablePresensi();
+
+    if (!silent) throw err;
+    return null;
+  }
 }
 
 /* =========================
@@ -523,7 +582,7 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
    ========================= */
 async function doPresensi(){
   try{
-    await checkLocation();
+    await checkLocation({ force:false, silent:false, maxAgeMs:45000 });
     if (!State.loc.inFence){
       UI.setResult('Anda di luar area geo-fence. Dekati area Training Center.', false);
       return;
@@ -1146,6 +1205,82 @@ function initAdminModal(){
 
 }
 
+/* =========================
+   Camera Modals (fullscreen)
+   ========================= */
+function initCameraModals(){
+  const pModal = $('#pcam-modal');
+  const aModal = $('#acam-modal');
+
+  const openP = $('#btn-open-pcam');
+  const closeP = $('#btn-close-pcam');
+
+  const openA = $('#btn-open-acam');
+  const closeA = $('#btn-close-acam');
+
+  // open peserta camera modal
+  if (openP){
+    openP.addEventListener('click', async()=>{
+      show(pModal);
+
+      // optional: minta fullscreen jika browser mendukung
+      try{ pModal.requestFullscreen?.(); } catch(e){}
+
+      // pastikan stream ada (kalau sebelumnya dimatikan)
+      try{ await switchCamera('peserta', State.cam.pesertaFacing); } catch(e){}
+    });
+  }
+
+  // close peserta camera modal
+  if (closeP){
+    closeP.addEventListener('click', ()=>{
+      hide(pModal);
+      try{ document.fullscreenElement && document.exitFullscreen?.(); } catch(e){}
+      // optional hemat baterai: stop stream saat modal ditutup
+      try{ stopStream($('#video')); } catch(e){}
+    });
+  }
+
+  // klik backdrop untuk tutup (peserta)
+  if (pModal){
+    pModal.addEventListener('click', (e)=>{
+      if (e.target === pModal) closeP?.click();
+    });
+  }
+
+  // open admin enroll camera modal
+  if (openA){
+    openA.addEventListener('click', async()=>{
+      show(aModal);
+      try{ aModal.requestFullscreen?.(); } catch(e){}
+      try{ await switchCamera('admin', State.cam.adminFacing); } catch(e){}
+    });
+  }
+
+  // close admin enroll camera modal
+  if (closeA){
+    closeA.addEventListener('click', ()=>{
+      hide(aModal);
+      try{ document.fullscreenElement && document.exitFullscreen?.(); } catch(e){}
+      try{ stopStream($('#a_video')); } catch(e){}
+    });
+  }
+
+  // klik backdrop untuk tutup (admin)
+  if (aModal){
+    aModal.addEventListener('click', (e)=>{
+      if (e.target === aModal) closeA?.click();
+    });
+  }
+
+  // ESC untuk tutup
+  document.addEventListener('keydown', (e)=>{
+    if (e.key !== 'Escape') return;
+    if (pModal && !pModal.classList.contains('hidden')) closeP?.click();
+    if (aModal && !aModal.classList.contains('hidden')) closeA?.click();
+  });
+}
+
 async function main(){
   State.deviceId = getOrCreateDeviceId();
   $('#device-info').innerHTML = `Device ID: <b>${escapeHtml(State.deviceId)}</b>`;
@@ -1153,27 +1288,44 @@ async function main(){
   initMode();
   initTraining();
   initAdminModal();
+  initCameraModals();
 
-  $('#btn-checkloc').addEventListener('click', async()=>{
-    try{ await checkLocation(); UI.setResult('Lokasi berhasil dicek.', true); }
-    catch(e){ UI.setResult(e.message || String(e), false); }
+    $('#btn-checkloc').addEventListener('click', async()=>{
+    try{
+      await checkLocation({ force:true, silent:false });
+      UI.setResult('Lokasi berhasil diperbarui.', true);
+    } catch(e){
+      UI.setResult(e.message || String(e), false);
+    }
   });
   $('#btn-presensi').addEventListener('click', doPresensi);
 
   // camera peserta + admin
   // load config dulu (agar liveness/threshold/geofence siap)
   await loadConfig(true);
+    // ✅ AUTO cek lokasi saat aplikasi load/refresh
+  updateLocPill(); // tampilkan status awal "Sedang cek lokasi…"
+  try{
+    await checkLocation({ force:false, silent:true, maxAgeMs:45000 });
+    if (State.locError){
+      UI.setResult('Aktifkan izin lokasi agar tombol Presensi bisa digunakan.', false);
+    } else {
+      UI.setResult('Lokasi terdeteksi. Silakan buka kamera lalu Presensi.', true);
+    }
+  } catch(e){
+    // silent:true biasanya tidak throw, tapi jaga-jaga
+  }
 
-  // camera peserta + admin sesuai setting terakhir
-  await switchCamera('peserta', State.cam.pesertaFacing);
-  await switchCamera('admin', State.cam.adminFacing);
+  // Kamera sekarang dibuka saat modal dibuka (lebih hemat & full screen)
+  // await switchCamera('peserta', State.cam.pesertaFacing);
+  // await switchCamera('admin', State.cam.adminFacing);
   updateLocPill();
   validateEnablePresensi();
 
   // warm up models
   try{ await loadModels(); } catch(e){ /* will retry on demand */ }
 
-  UI.setResult('Siap. Cek lokasi dulu sebelum presensi.', true);
+  UI.setResult('Siap melakukan presensi.', true);
 }
 
 main();

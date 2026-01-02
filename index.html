@@ -91,28 +91,17 @@
           </div>
         </div>
 
-        <div class="result" id="result"></div>
-
-        <div class="camera">
-            <video id="video" autoplay muted playsinline></video>
-            <canvas id="overlay"></canvas>
-
-            <!-- ✅ tombol rotasi kamera (peserta) -->
-            <button id="btn-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
-                <!-- icon rotate (inline SVG) -->
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
-                </svg>
-            </button>
-            </div>
-
-        <div class="actions">
-          <button id="btn-presensi" class="btn primary" disabled>Presensi</button>
+        <div class="box mt">
+        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div class="small">Kamera full-screen.</div>
+            <button id="btn-open-pcam" class="btn primary" type="button">Buka Kamera</button>
+        </div>
         </div>
 
         <div class="small mt2" id="device-info"></div>
       </section>
 
+      
       <!-- ADMIN MODAL -->
       <div class="modal hidden" id="admin-modal">
         <div class="modal-card">
@@ -167,22 +156,13 @@
                 </div>
               </div>
 
-            <div class="camera">
-                <video id="a_video" autoplay muted playsinline></video>
-                <canvas id="a_overlay"></canvas>
-
-                <!-- ✅ tombol rotasi kamera (admin enroll) -->
-                <button id="btn-a-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
-                    </svg>
-                </button>
+              <div class="box mt">
+                <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                    <div class="small">Kamera full-screen.</div>
+                    <button id="btn-open-acam" class="btn primary" type="button">Buka Kamera</button>
                 </div>
-
-              <div class="actions">
-                <button id="btn-enroll" class="btn primary">Simpan + Rekam Wajah (Multi-shot)</button>
-              </div>
-              <div class="result" id="admin-result"></div>
+                </div>
+              
             </div>
 
             <!-- REKAP -->
@@ -429,6 +409,73 @@
       <span class="small">© Training Center • Presensi</span>
     </footer>
   </div>
+
+  <!-- =========================================
+     CAMERA MODAL: PESERTA (FULL SCREEN)
+     ========================================= -->
+<div class="modal hidden cam-modal" id="pcam-modal">
+  <div class="modal-card cam-modal-card">
+    <div class="modal-head cam-modal-head">
+      <div style="font-weight:900;">Kamera Presensi</div>
+      <button class="btn ghost" id="btn-close-pcam" type="button">Tutup</button>
+    </div>
+
+    <!-- result dipindah ke modal agar pesan terlihat saat scan -->
+    <div class="result" id="result"></div>
+
+    <div class="camera cam-full">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+
+      <button id="btn-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="actions">
+          <button id="btn-presensi" class="btn primary" disabled>Presensi</button>
+    </div>
+
+    <div class="small" style="padding:12px 16px 18px;">
+      Tip: pastikan wajah memenuhi frame, cahaya cukup, dan jangan terlalu banyak bergerak.
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     CAMERA MODAL: ADMIN ENROLL (FULL SCREEN)
+     ========================================= -->
+<div class="modal hidden cam-modal" id="acam-modal">
+  <div class="modal-card cam-modal-card">
+    <div class="modal-head cam-modal-head">
+      <div style="font-weight:900;">Kamera Enroll Admin</div>
+      <button class="btn ghost" id="btn-close-acam" type="button">Tutup</button>
+    </div>
+
+    <div class="result" id="admin-result"></div>
+
+    <div class="camera cam-full">
+      <video id="a_video" autoplay muted playsinline></video>
+      <canvas id="a_overlay"></canvas>
+
+      <button id="btn-a-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="actions">
+        <button id="btn-enroll" class="btn primary">Simpan + Rekam Wajah</button>
+    </div>
+
+    <div class="small" style="padding:12px 16px 18px;">
+      Tip: saat enroll, pastikan wajah jelas & stabil selama multi-shot.
+    </div>
+  </div>
+</div>
 
   <script>// kecil untuk toggle modal
     function show(el){ el.classList.remove('hidden'); }
