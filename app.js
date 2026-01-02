@@ -32,7 +32,7 @@ const State = {
 };
 
 // ✅ Ganti dengan URL Deploy Web App Anda (exec)
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx4x0X3e8S4SUHa5YPoPRvoZJRvSxOh_UOcEfWciPQNls9Wgzwth0G3vKqssqX1RXVi/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyB8tvXIAiAt6adyy3VoR8EE2YFwmBig5tuNPOKREP4HqVGKn_swzbR_vIY8wv-fD5X/exec';
 
 async function api(action, payload={}){
   const form = new URLSearchParams();
@@ -704,6 +704,11 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 async function doPresensi(){
   return runExclusive('presensi', async()=>{
     try{
+        // ✅ jika izin lokasi belum ada / error, minta user keluar fullscreen dulu
+        if (State.locError && document.fullscreenElement){
+        UI.setResult('Izin lokasi belum aktif. Tutup fullscreen lalu klik "Cek Lokasi" terlebih dahulu.', false);
+        return;
+        }
       await checkLocation({ force:false, silent:false, maxAgeMs:45000 });
       if (!State.loc.inFence){
         UI.setResult('Anda di luar area geo-fence. Dekati area Training Center.', false);
@@ -751,17 +756,28 @@ async function doPresensi(){
       payload.descriptor_avg = descAvg;
 
       const r = await api('verifyAndLog', payload);
-      if (r.ok){
+
+        if (r.ok){
         UI.setResult(
-          `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
-           Jarak center: ${Math.round(r.distance_m)} m<br/>
-           Deteksi Device: <b>${r.device_detect_enabled ? 'ON' : 'OFF'}</b> • Status: <b>${escapeHtml(r.status || '')}</b><br/>
-           ${r.device_bound ? '✅ Device berhasil diikat (binding) pertama kali.' : ''}`,
-          true
+            `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
+            Jarak center: ${Math.round(r.distance_m)} m<br/>
+            Deteksi Device: <b>${r.device_detect_enabled ? 'ON' : 'OFF'}</b> • Status: <b>${escapeHtml(r.status || '')}</b><br/>
+            ${r.device_bound ? '✅ Device berhasil diikat (binding) pertama kali.' : ''}`,
+            true
         );
-      } else {
+        } else {
+        // ✅ Khusus duplicate attempt
+        if (String(r.status || '').toUpperCase() === 'DUPLICATE_ATTEMPT'){
+            UI.setResult(
+            `Presensi duplikat terdeteksi.<br/>
+            Jika barusan sudah presensi, tidak perlu ulang. (Anti-Duplicate Aktif)`,
+            false
+            );
+            return;
+        }
+
         UI.setResult(`${escapeHtml(r.error || 'Gagal')}<br/>Status: ${escapeHtml(r.status || '-')}`, false);
-      }
+        }
     } catch(err){
       UI.setResult(String(err?.message || err), false);
     } finally {
@@ -1304,6 +1320,8 @@ function initAdminModal(){
     // auto load settings & materi
       adminLoadSettings();
       adminLoadMateri();
+      dashTodayDefaults();
+      initDashboardMeta();
     } else {
       $('#admin-pane').classList.add('hidden');
       $('#admin-login-pane').classList.remove('hidden');
@@ -1363,6 +1381,46 @@ function initAdminModal(){
     async()=> await adminExportCsv(),
     { text:'Export…', overlay:true, overlayText:'Menyiapkan file CSV…' }
     ));
+
+      // ✅ Dashboard buttons
+    $('#btn-d-preview')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-d-preview'),
+        async()=> await adminPreviewTraining(),
+        { text:'Memuat…', overlay:true, overlayText:'Menyusun Daftar Hadir…' }
+    ));
+
+    $('#btn-d-xlsx')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-d-xlsx'),
+        async()=> await adminExportDashboard('xlsx','training'),
+        { text:'Export…', overlay:true, overlayText:'Menyiapkan XLSX Daftar Hadir…' }
+    ));
+
+    $('#btn-d-pdf')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-d-pdf'),
+        async()=> await adminExportDashboard('pdf','training'),
+        { text:'PDF…', overlay:true, overlayText:'Menyiapkan PDF Daftar Hadir…' }
+    ));
+
+    $('#btn-g-preview')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-g-preview'),
+        async()=> await adminPreviewGate(),
+        { text:'Memuat…', overlay:true, overlayText:'Menyusun Laporan Mobilitas…' }
+    ));
+
+    $('#btn-g-xlsx')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-g-xlsx'),
+        async()=> await adminExportDashboard('xlsx','gate'),
+        { text:'Export…', overlay:true, overlayText:'Menyiapkan XLSX Mobilitas…' }
+    ));
+
+    $('#btn-g-pdf')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-g-pdf'),
+        async()=> await adminExportDashboard('pdf','gate'),
+        { text:'PDF…', overlay:true, overlayText:'Menyiapkan PDF Mobilitas…' }
+    ));
+
+    // toggle view mobilitas
+    bindGateViewToggle();
 
   // settings
     $('#btn-save-settings').addEventListener('click', ()=> Busy.wrap(
@@ -1449,8 +1507,14 @@ function initCameraModals(){
   if (openA){
     openA.addEventListener('click', async()=>{
       show(aModal);
-      try{ aModal.requestFullscreen?.(); } catch(e){}
-      try{ await switchCamera('admin', State.cam.adminFacing); } catch(e){}
+      // ✅ start kamera dulu (permission kamera di sini)
+    try{ await switchCamera('admin', State.cam.adminFacing); }
+    catch(e){
+      UI.setAdminResult(String(e?.message || e), false);
+      return;
+    }
+    // ✅ Baru fullscreen
+        try{ await aModal.requestFullscreen?.(); } catch(e){}
     });
   }
 
@@ -1501,14 +1565,33 @@ async function openPesertaCameraModal(){
         : 'Kamera Presensi - Mobilitas Peserta';
     }
   }
+  
+  // ✅ 1) izin lokasi
+  try{
+    // hanya cek jika belum pernah valid atau sebelumnya error
+    if (State.locError || !isFinite(State.loc.distance_m)){
+      await checkLocation({ force:false, silent:false, maxAgeMs:45000 });
+    }
+  }catch(e){
+    UI.setResult('Aktifkan izin lokasi agar Presensi bisa digunakan.', false);
+  }
 
-  // minta fullscreen jika didukung
-  try{ pModal.requestFullscreen?.(); } catch(e){}
+  // ✅ 2) Start / restore camera stream dulu
+  try{
+    await switchCamera('peserta', State.cam.pesertaFacing);
+  } catch(e){
+    // kalau kamera gagal, jangan fullscreen
+    UI.setResult(String(e?.message || e), false);
+    updateScanBadge();
+    validateEnablePresensi();
+    return;
+  }
 
-  // start / restore camera stream
-  try{ await switchCamera('peserta', State.cam.pesertaFacing); } catch(e){}
+  // ✅ 3) Request fullscreen (setelah permission request selesai)
+  try{
+    await pModal.requestFullscreen?.();
+  } catch(e){}
 
-  // pastikan tombol Presensi mengikuti validasi terbaru
   updateScanBadge();
   validateEnablePresensi();
 }
@@ -1527,6 +1610,216 @@ function closePesertaCameraModal(){
   }
   updateScanBadge();
   validateEnablePresensi();
+}
+
+/* =========================================================
+   ✅ DASHBOARD ADMIN (Daftar Hadir + Mobilitas) + EXPORT XLSX/PDF
+   Backend actions:
+   - adminPesertaMeta
+   - adminTrainingReport
+   - adminGateReport
+   - adminExportXlsx
+   - adminExportPdf
+   ========================================================= */
+
+function b64ToBlob(b64, mime){
+  const bin = atob(b64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i=0;i<len;i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime || 'application/octet-stream' });
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'download';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 1200);
+}
+
+async function adminPesertaMeta(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  const r = await api('adminPesertaMeta', { admin_token: State.adminToken });
+  if (!r.ok) throw new Error(r.error || 'Gagal ambil meta peserta');
+  return r;
+}
+
+function fillSelect(el, items, placeholder='Pilih…'){
+  if (!el) return;
+  const cur = el.value || '';
+  el.innerHTML = `<option value="">${placeholder}</option>` + (items||[])
+    .map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join('');
+  if (cur && (items||[]).includes(cur)) el.value = cur;
+}
+
+async function initDashboardMeta(){
+  try{
+    const meta = await adminPesertaMeta();
+    fillSelect($('#d_group'), meta.groups || []);
+    fillSelect($('#g_group'), meta.groups || [], '(opsional)');
+  } catch(e){
+    // jangan fatal, tapi kasih info
+    UI.setAdminResult(String(e.message || e), false);
+  }
+}
+
+function dashTodayDefaults(){
+  const t = todayISO();
+  if ($('#d_date')) $('#d_date').value = t;
+  if ($('#g_start')) $('#g_start').value = t;
+  if ($('#g_end')) $('#g_end').value = t;
+}
+
+function renderDaftarHadir(rows){
+  const tb = $('#d_table tbody');
+  tb.innerHTML = (rows||[]).map((r, i)=>`
+    <tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(r.nik)}</td>
+      <td>${escapeHtml(r.nama)}</td>
+      <td>${escapeHtml(r.estate || '')}</td>
+      <td>${escapeHtml(r.region || '')}</td>
+      <td>${escapeHtml(r.timestamp || '')}</td>
+    </tr>
+  `).join('');
+}
+
+function renderGateTable(view, rows){
+  const thead = $('#g_table thead');
+  const tbody = $('#g_table tbody');
+
+  if (view === 'person'){
+    thead.innerHTML = `
+      <tr>
+        <th>Tanggal</th><th>NIK</th><th>Nama</th><th>Reason</th>
+        <th>IN Times</th><th>OUT Times</th><th>Total</th>
+      </tr>`;
+    tbody.innerHTML = (rows||[]).map(r=>`
+      <tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.nik)}</td>
+        <td>${escapeHtml(r.nama)}</td>
+        <td>${escapeHtml(r.gate_reason || '')}</td>
+        <td>${escapeHtml(r.in_times || '')}</td>
+        <td>${escapeHtml(r.out_times || '')}</td>
+        <td>${escapeHtml(String(r.total || 0))}</td>
+      </tr>
+    `).join('');
+  } else {
+    thead.innerHTML = `
+      <tr>
+        <th>Tanggal</th><th>Reason</th><th>IN</th><th>OUT</th><th>Total</th>
+      </tr>`;
+    tbody.innerHTML = (rows||[]).map(r=>`
+      <tr>
+        <td>${escapeHtml(r.date)}</td>
+        <td>${escapeHtml(r.gate_reason || '')}</td>
+        <td>${escapeHtml(String(r.in_count || 0))}</td>
+        <td>${escapeHtml(String(r.out_count || 0))}</td>
+        <td>${escapeHtml(String(r.total || 0))}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function adminPreviewTraining(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+
+  const date = ($('#d_date').value || '').trim();
+  const group = ($('#d_group').value || '').trim();
+  const training_type = ($('#d_training_type').value || '').trim();
+  const activity = ($('#d_activity').value || '').trim();
+  const material = ($('#d_material').value || '').trim();
+  const location = ($('#d_location').value || 'Seriang Training Center').trim();
+
+  if (!date || !group || !training_type || !activity){
+    throw new Error('Wajib isi: Tanggal, Batch/Group, Training Type, Activity.');
+  }
+
+  const r = await api('adminTrainingReport', {
+    admin_token: State.adminToken,
+    date, group, training_type, activity, material, location
+  });
+
+  if (!r.ok) throw new Error(r.error || 'Gagal membuat report daftar hadir');
+
+  $('#d_summary').textContent =
+    `Total roster: ${r.stats?.total || 0} | Hadir: ${r.stats?.hadir || 0} | Tidak Hadir: ${r.stats?.absen || 0}`;
+
+  renderDaftarHadir(r.rows || []);
+}
+
+async function adminPreviewGate(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+
+  const start = ($('#g_start').value || '').trim();
+  const end = ($('#g_end').value || '').trim();
+  const view = ($('#g_view').value || 'daily').trim();
+  const gate_reason = ($('#g_reason').value || '').trim();
+  const nik = ($('#g_nik').value || '').trim();
+  const group = ($('#g_group').value || '').trim();
+
+  if (!start || !end) throw new Error('Tanggal Mulai & Akhir wajib diisi.');
+
+  if (view === 'person' && !nik){
+    throw new Error('Mode "Per Peserta" membutuhkan NIK.');
+  }
+
+  const r = await api('adminGateReport', {
+    admin_token: State.adminToken,
+    start, end, view, gate_reason, nik, group
+  });
+
+  if (!r.ok) throw new Error(r.error || 'Gagal membuat report mobilitas');
+
+  $('#g_summary').textContent = r.summary_text || `Rows: ${(r.rows||[]).length}`;
+  renderGateTable(view, r.rows || []);
+}
+
+async function adminExportDashboard(fmt, reportType){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+
+  let payload = { admin_token: State.adminToken, report_type: reportType };
+
+  if (reportType === 'training'){
+    payload.date = ($('#d_date').value || '').trim();
+    payload.group = ($('#d_group').value || '').trim();
+    payload.training_type = ($('#d_training_type').value || '').trim();
+    payload.activity = ($('#d_activity').value || '').trim();
+    payload.material = ($('#d_material').value || '').trim();
+    payload.location = ($('#d_location').value || 'Seriang Training Center').trim();
+  } else {
+    payload.start = ($('#g_start').value || '').trim();
+    payload.end = ($('#g_end').value || '').trim();
+    payload.view = ($('#g_view').value || 'daily').trim();
+    payload.gate_reason = ($('#g_reason').value || '').trim();
+    payload.nik = ($('#g_nik').value || '').trim();
+    payload.group = ($('#g_group').value || '').trim();
+  }
+
+  const action = (fmt === 'pdf') ? 'adminExportPdf' : 'adminExportXlsx';
+  const r = await api(action, payload);
+  if (!r.ok) throw new Error(r.error || 'Export gagal');
+
+  const blob = b64ToBlob(r.b64, r.mime);
+  downloadBlob(blob, r.filename || (reportType + (fmt==='pdf'?'.pdf':'.xlsx')));
+}
+
+/* hook untuk toggle input Per Peserta */
+function bindGateViewToggle(){
+  const sel = $('#g_view');
+  const wrap = $('#g_person_wrap');
+  if (!sel || !wrap) return;
+
+  const refresh = ()=>{
+    wrap.style.display = (sel.value === 'person') ? 'grid' : 'none';
+  };
+  sel.addEventListener('change', refresh);
+  refresh();
 }
 
 async function main(){

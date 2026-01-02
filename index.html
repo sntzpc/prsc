@@ -78,7 +78,7 @@
             <div>
               <label>Alasan</label>
               <input id="gate_reason" type="text" placeholder="Ibadah / Berobat / Field Day / lainnya…"/>
-              <div class="hint">Cepat: <span class="chip" data-reason="Ibadah">Ibadah</span> <span class="chip" data-reason="Berobat">Berobat</span> <span class="chip" data-reason="Field Day">Field Day</span></div>
+              <div class="hint">Cepat: <span class="chip" data-reason="Ibadah">Ibadah</span> <span class="chip" data-reason="OJT">OJT</span> <span class="chip" data-reason="Kerja">Kerja</span></div>
             </div>
             <div>
               <label>Arah</label>
@@ -127,6 +127,7 @@
           <section id="admin-pane" class="hidden">
             <div class="tabs2">
                 <button class="tab2 active" data-atab="enroll">Enroll</button>
+                <button class="tab2" data-atab="dashboard">Dashboard</button>
                 <button class="tab2" data-atab="rekap">Rekap</button>
                 <button class="tab2" data-atab="logs">Logs</button>
                 <button class="tab2" data-atab="settings">Settings</button>
@@ -163,6 +164,147 @@
                 </div>
                 </div>
               
+            </div>
+
+            <!-- DASHBOARD -->
+            <div class="apane" id="apane-dashboard">
+
+            <!-- ============ DAFTAR HADIR TRAINING ============ -->
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Daftar Hadir Kegiatan (Training)</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Tanggal</label>
+                    <input id="d_date" type="date"/>
+                </div>
+                <div>
+                    <label>Batch</label>
+                    <select id="d_group">
+                    <option value="">Pilih…</option>
+                    </select>
+                    <div class="small">Sumber: sheet <b>peserta</b> kolom <b>Batch</b>.</div>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Training Type</label>
+                    <select id="d_training_type">
+                    <option value="">Pilih…</option>
+                    <option>KLP1 AGRO</option>
+                    <option>KLP1 MILL</option>
+                    <option>KLP1 ADMN</option>
+                    <option>2nd Stream</option>
+                    <option>Uji Kompetensi</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Activity</label>
+                    <select id="d_activity">
+                    <option value="">Pilih…</option>
+                    <option>Sesi Kelas</option>
+                    <option>Field Day</option>
+                    <option>Uji Kompetensi</option>
+                    <option>Olahraga</option>
+                    <option>Makan</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Materi</label>
+                    <input id="d_material" type="text" placeholder="(opsional) harus sama dengan data attendance"/>
+                </div>
+                <div>
+                    <label>Lokasi</label>
+                    <input id="d_location" type="text" value="Seriang Training Center"/>
+                </div>
+                </div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-d-preview">Preview Daftar Hadir</button>
+                <button class="btn" id="btn-d-xlsx">Export XLSX</button>
+                <button class="btn" id="btn-d-pdf">Export PDF</button>
+                </div>
+
+                <div class="small" id="d_summary">-</div>
+
+                <div class="tablewrap mt">
+                <table class="tbl" id="d_table">
+                    <thead>
+                    <tr>
+                        <th>No</th><th>NIK</th><th>Nama Peserta</th><th>Estate</th><th>Region</th><th>Timestamp</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                </div>
+
+                <div class="small mt2">
+                Catatan: Timestamp diambil dari <b>attendance</b> (status <b>OK*</b>) sesuai filter.
+                </div>
+            </div>
+
+            <!-- ============ MOBILITAS GATE ============ -->
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Laporan Mobilitas Peserta (Gate)</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Tanggal Mulai</label>
+                    <input id="g_start" type="date"/>
+                </div>
+                <div>
+                    <label>Tanggal Akhir</label>
+                    <input id="g_end" type="date"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Mode Laporan</label>
+                    <select id="g_view">
+                    <option value="daily">Rekap Harian (Semua Peserta)</option>
+                    <option value="person">Per Peserta (IN/OUT per hari)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Gate Reason (opsional)</label>
+                    <input id="g_reason" type="text" placeholder="Ibadah / OJT / Kerja / dll…"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt" id="g_person_wrap" style="display:none;">
+                <div>
+                    <label>NIK (wajib jika Per Peserta)</label>
+                    <input id="g_nik" type="text" placeholder="Masukkan NIK…"/>
+                </div>
+                <div>
+                    <label>Batch / Group (opsional)</label>
+                    <select id="g_group">
+                    <option value="">(opsional)</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-g-preview">Preview Mobilitas</button>
+                <button class="btn" id="btn-g-xlsx">Export XLSX</button>
+                <button class="btn" id="btn-g-pdf">Export PDF</button>
+                </div>
+
+                <div class="small" id="g_summary">-</div>
+
+                <div class="tablewrap mt">
+                <table class="tbl" id="g_table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+                </div>
+            </div>
+
             </div>
 
             <!-- REKAP -->
