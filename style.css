@@ -776,3 +776,167 @@ canvas#overlay, canvas#a_overlay {
   fill: rgba(241, 245, 249, 0.95);
   filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
 }
+
+/* =========================================================
+   ✅ MOBILE ADMIN MODAL UX FIX (responsive & easy navigation)
+   - modal-card full screen on mobile
+   - internal scroll, sticky header & sticky tabs
+   ========================================================= */
+
+/* 1) modal-card jadi container flex agar body bisa scroll */
+.modal-card{
+  display: flex;
+  flex-direction: column;
+}
+
+/* 2) supaya isi modal bisa scroll internal (bukan body halaman) */
+.modal-card > section,
+.modal-card #admin-pane,
+.modal-card #admin-login-pane{
+  min-height: 0; /* penting agar flex child bisa scroll */
+}
+
+/* 3) Sticky header selalu terlihat */
+.modal-head{
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+/* 4) Tabs sticky tepat di bawah header (desktop tetap oke) */
+.tabs2{
+  position: sticky;
+  top: 76px;           /* kira-kira tinggi modal-head */
+  z-index: 19;
+  background: var(--bg-card);
+  margin: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Hilangkan jarak besar bawaan di desktop (kita atur ulang) */
+.apane{
+  padding: 16px;
+}
+
+/* =========================================================
+   MOBILE: buat modal seperti full-screen sheet
+   ========================================================= */
+@media (max-width: 768px){
+
+  /* modal lebih rapat */
+  .modal{
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  /* full screen + safe area */
+  .modal-card{
+    width: 100vw;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    animation: none;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* header lebih compact */
+  .modal-head{
+    padding: 14px 14px;
+  }
+  .modal-head div{
+    font-size: 18px;
+  }
+
+  /* tabs: lebih kecil + swipe enak */
+  .tabs2{
+    top: 56px; /* tinggi header versi mobile */
+    padding: 10px 12px;
+    gap: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+  .tab2{
+    padding: 10px 12px;
+    font-size: 13px;
+    border-radius: 999px; /* pill */
+    scroll-snap-align: start;
+  }
+
+  /* konten admin jadi scroll di dalam modal */
+  #admin-pane,
+  #admin-login-pane{
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px; /* biar rapat */
+  }
+
+  /* setiap pane isi: lebih rapat */
+  .apane{
+    padding: 12px 4px 24px;
+  }
+
+  /* box lebih kecil agar tidak “kepanjangan” */
+  .box{
+    padding: 16px;
+    margin-top: 14px;
+  }
+
+  /* grid jadi 1 kolom di modal supaya tidak sempit */
+  #admin-modal .grid2{
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  /* tombol di dalam modal: tetap mudah ditekan */
+  #admin-modal .actions{
+    margin-top: 16px;
+    gap: 10px;
+  }
+  #admin-modal .btn{
+    width: 100%;
+    min-width: 0;
+    padding: 14px 16px;
+    font-size: 15px;
+  }
+
+  /* video admin enroll: jangan terlalu tinggi di HP */
+  #admin-modal video{
+    height: 240px;
+  }
+}
+
+/* =========================================================
+   SMALL MOBILE: makin rapat lagi
+   ========================================================= */
+@media (max-width: 480px){
+  .tabs2{
+    padding: 8px 10px;
+  }
+  .tab2{
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+  .modal-head{
+    padding: 12px 12px;
+  }
+  #admin-modal video{
+    height: 220px;
+  }
+}
+
+/* =========================================================
+   Optional: stop body scroll saat modal terbuka
+   (tanpa JS: gunakan selector :has jika browser support)
+   ========================================================= */
+@supports(selector(:has(*))){
+  body:has(#admin-modal:not(.hidden)){
+    overflow: hidden;
+    touch-action: none;
+  }
+}
