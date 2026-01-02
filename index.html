@@ -29,7 +29,7 @@
             <label>Jenis Presensi</label>
             <select id="mode">
               <option value="training">Kegiatan Training</option>
-              <option value="gate">Izin Keluar–Masuk</option>
+              <option value="gate">Mobilitas Peserta</option>
             </select>
           </div>
 
@@ -86,7 +86,7 @@
                 <button id="btn-in" class="btn">Masuk</button>
                 <button id="btn-out" class="btn danger">Keluar</button>
               </div>
-              <div class="hint">Masuk/Keluar akan menjalankan pemindaian + liveness.</div>
+              <div class="hint">Mobilitas (Masuk/Keluar) akan menjalankan pemindaian.</div>
             </div>
           </div>
         </div>
@@ -416,9 +416,13 @@
 <div class="modal hidden cam-modal" id="pcam-modal">
   <div class="modal-card cam-modal-card">
     <div class="modal-head cam-modal-head">
-      <div style="font-weight:900;">Kamera Presensi</div>
-      <button class="btn ghost" id="btn-close-pcam" type="button">Tutup</button>
-    </div>
+  <div class="cam-head-left">
+    <div style="font-weight:900;" id="pcam-title">Kamera Presensi</div>
+    <!-- ✅ badge indikator konteks scan -->
+    <div id="scan-badge" class="badge mini neutral">SIAP</div>
+  </div>
+  <button class="btn ghost" id="btn-close-pcam" type="button">Tutup</button>
+</div>
 
     <!-- result dipindah ke modal agar pesan terlihat saat scan -->
     <div class="result" id="result"></div>

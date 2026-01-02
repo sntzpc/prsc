@@ -379,12 +379,50 @@ function validateEnablePresensi(){
 
     const needMaterial = (act.toLowerCase() === 'sesi kelas' || act.toLowerCase() === 'field day');
     if (needMaterial && !($('#material').value || '').trim()) ok = false;
-  } else {
+    } else {
     const reason = ($('#gate_reason').value || '').trim();
     if (!reason) ok = false;
+
+    // ✅ Mobilitas wajib pilih arah (Masuk/Keluar) dulu
+    if (!State.gateDirection) ok = false;
   }
 
   $('#btn-presensi').disabled = !ok;
+}
+
+/* =========================
+   Badge indikator konteks scan (di modal kamera peserta)
+   ========================= */
+function setScanBadge(text, tone='neutral'){
+  const el = $('#scan-badge');
+  if (!el) return;
+  el.textContent = text;
+
+  // reset class tone
+  el.classList.remove('neutral','ok','warn','danger');
+  el.classList.add(tone);
+}
+
+function updateScanBadge(){
+  const mode = ($('#mode')?.value || 'training');
+
+  if (mode === 'training'){
+    const tt = ($('#training_type')?.value || '').trim();
+    const act = ($('#activity')?.value || '').trim();
+
+    const label = `TRAINING${tt ? ': '+tt : ''}${act ? ' / '+act : ''}`;
+    setScanBadge(label, 'ok');
+    return;
+  }
+
+  // gate / mobilitas
+  if (!State.gateDirection){
+    setScanBadge('MOBILITAS: PILIH ARAH', 'warn');
+    return;
+  }
+
+  const dir = (State.gateDirection === 'IN') ? 'MASUK' : 'KELUAR';
+  setScanBadge(`MOBILITAS: ${dir}`, State.gateDirection === 'IN' ? 'ok' : 'danger');
 }
 
 /* =========================
@@ -643,6 +681,7 @@ async function doPresensi(){
     UI.setResult(String(err?.message || err), false);
   } finally {
     State.gateDirection = null;
+    updateScanBadge();
   }
 }
 
@@ -1078,11 +1117,19 @@ function initMode(){
   const trainingBox = $('#training-fields');
   const gateBox = $('#gate-fields');
 
-  function refresh(){
+    function refresh(){
     const v = mode.value;
-    if (v === 'training'){ trainingBox.classList.remove('hidden'); gateBox.classList.add('hidden'); }
-    else { gateBox.classList.remove('hidden'); trainingBox.classList.add('hidden'); }
+    if (v === 'training'){
+      trainingBox.classList.remove('hidden');
+      gateBox.classList.add('hidden');
+      State.gateDirection = null; // ✅ reset saat pindah ke training
+    } else {
+      gateBox.classList.remove('hidden');
+      trainingBox.classList.add('hidden');
+      // di mobilitas, arah akan ditentukan lewat tombol Masuk/Keluar
+    }
     validateEnablePresensi();
+    updateScanBadge();
   }
   mode.addEventListener('change', refresh);
   refresh();
@@ -1091,8 +1138,21 @@ function initMode(){
     ch.addEventListener('click', ()=>{ $('#gate_reason').value = ch.dataset.reason; validateEnablePresensi(); });
   });
 
-  $('#btn-in').addEventListener('click', async()=>{ State.gateDirection='IN'; await doPresensi(); });
-  $('#btn-out').addEventListener('click', async()=>{ State.gateDirection='OUT'; await doPresensi(); });
+    $('#btn-in').addEventListener('click', async()=>{
+    State.gateDirection = 'IN';
+    validateEnablePresensi();
+    updateScanBadge();
+    await openPesertaCameraModal(); // ✅ buka kamera full-screen
+    UI.setResult('Mobilitas: MASUK. Pastikan wajah jelas lalu tekan Presensi.', true);
+  });
+
+  $('#btn-out').addEventListener('click', async()=>{
+    State.gateDirection = 'OUT';
+    validateEnablePresensi();
+    updateScanBadge();
+    await openPesertaCameraModal(); // ✅ buka kamera full-screen
+    UI.setResult('Mobilitas: KELUAR. Pastikan wajah jelas lalu tekan Presensi.', true);
+  });
 }
 
 function initTraining(){
@@ -1104,12 +1164,14 @@ function initTraining(){
 
   t.addEventListener('change', ()=>{
     localStorage.setItem('lastTrainingType', t.value||'');
+    updateScanBadge();
     validateEnablePresensi();
   });
 
   a.addEventListener('change', ()=>{
     localStorage.setItem('lastActivity', a.value||'');
     toggleMaterial();
+    updateScanBadge();
     validateEnablePresensi();
   });
 
@@ -1218,33 +1280,25 @@ function initCameraModals(){
   const openA = $('#btn-open-acam');
   const closeA = $('#btn-close-acam');
 
-  // open peserta camera modal
-  if (openP){
+  // open-close camera modal
+    if (openP){
     openP.addEventListener('click', async()=>{
-      show(pModal);
-
-      // optional: minta fullscreen jika browser mendukung
-      try{ pModal.requestFullscreen?.(); } catch(e){}
-
-      // pastikan stream ada (kalau sebelumnya dimatikan)
-      try{ await switchCamera('peserta', State.cam.pesertaFacing); } catch(e){}
+      await openPesertaCameraModal();
+      if (($('#mode')?.value || '') === 'gate' && !State.gateDirection){
+        UI.setResult('Mode Mobilitas Peserta: pilih dulu Masuk atau Keluar agar tombol Presensi aktif.', false);
+      }
     });
   }
 
-  // close peserta camera modal
   if (closeP){
-    closeP.addEventListener('click', ()=>{
-      hide(pModal);
-      try{ document.fullscreenElement && document.exitFullscreen?.(); } catch(e){}
-      // optional hemat baterai: stop stream saat modal ditutup
-      try{ stopStream($('#video')); } catch(e){}
-    });
+    closeP.addEventListener('click', ()=> closePesertaCameraModal());
   }
+
 
   // klik backdrop untuk tutup (peserta)
-  if (pModal){
+    if (pModal){
     pModal.addEventListener('click', (e)=>{
-      if (e.target === pModal) closeP?.click();
+      if (e.target === pModal) closePesertaCameraModal();
     });
   }
 
@@ -1274,11 +1328,62 @@ function initCameraModals(){
   }
 
   // ESC untuk tutup
-  document.addEventListener('keydown', (e)=>{
+    document.addEventListener('keydown', (e)=>{
     if (e.key !== 'Escape') return;
-    if (pModal && !pModal.classList.contains('hidden')) closeP?.click();
+    if (pModal && !pModal.classList.contains('hidden')) closePesertaCameraModal();
     if (aModal && !aModal.classList.contains('hidden')) closeA?.click();
   });
+}
+
+/* =========================
+   Helper: open/close peserta camera modal
+   (dipakai oleh tombol "Buka Kamera" & Mobilitas IN/OUT)
+   ========================= */
+async function openPesertaCameraModal(){
+  const pModal = $('#pcam-modal');
+  if (!pModal) return;
+
+  show(pModal);
+
+  // title dinamis
+  const mode = ($('#mode')?.value || 'training');
+  const titleEl = $('#pcam-title');
+  if (titleEl){
+    if (mode === 'training'){
+      titleEl.textContent = 'Kamera Presensi - Kegiatan Training';
+    } else {
+      const dir = (State.gateDirection === 'IN') ? 'MASUK' : (State.gateDirection === 'OUT' ? 'KELUAR' : '');
+      titleEl.textContent = dir
+        ? `Kamera Presensi - Mobilitas Peserta (${dir})`
+        : 'Kamera Presensi - Mobilitas Peserta';
+    }
+  }
+
+  // minta fullscreen jika didukung
+  try{ pModal.requestFullscreen?.(); } catch(e){}
+
+  // start / restore camera stream
+  try{ await switchCamera('peserta', State.cam.pesertaFacing); } catch(e){}
+
+  // pastikan tombol Presensi mengikuti validasi terbaru
+  updateScanBadge();
+  validateEnablePresensi();
+}
+
+function closePesertaCameraModal(){
+  const pModal = $('#pcam-modal');
+  if (!pModal) return;
+
+  hide(pModal);
+  try{ document.fullscreenElement && document.exitFullscreen?.(); } catch(e){}
+  try{ stopStream($('#video')); } catch(e){}
+
+  // ✅ kalau sedang Mobilitas dan user menutup kamera, reset arah agar tidak “nyangkut”
+  if (($('#mode')?.value || '') === 'gate'){
+    State.gateDirection = null;
+  }
+  updateScanBadge();
+  validateEnablePresensi();
 }
 
 async function main(){

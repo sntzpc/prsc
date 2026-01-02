@@ -1013,3 +1013,34 @@ canvas#overlay, canvas#a_overlay {
     touch-action: none;
   }
 }
+
+/* ===== Badge kecil indikator scan (header kamera peserta) ===== */
+.cam-head-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-weight:800;
+  letter-spacing:.2px;
+  border:1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.10);
+  color:#fff;
+  font-size:12px;
+  line-height:1;
+  user-select:none;
+}
+
+.badge.mini{ padding:5px 9px; font-size:11px; }
+
+.badge.neutral{ background: rgba(255,255,255,.12); }
+.badge.ok{ background: rgba(46, 204, 113, .18); border-color: rgba(46, 204, 113, .35); }
+.badge.warn{ background: rgba(241, 196, 15, .18); border-color: rgba(241, 196, 15, .35); }
+.badge.danger{ background: rgba(231, 76, 60, .18); border-color: rgba(231, 76, 60, .35); }
