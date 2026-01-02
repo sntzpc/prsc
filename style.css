@@ -1044,3 +1044,68 @@ canvas#overlay, canvas#a_overlay {
 .badge.ok{ background: rgba(46, 204, 113, .18); border-color: rgba(46, 204, 113, .35); }
 .badge.warn{ background: rgba(241, 196, 15, .18); border-color: rgba(241, 196, 15, .35); }
 .badge.danger{ background: rgba(231, 76, 60, .18); border-color: rgba(231, 76, 60, .35); }
+
+/* =========================================================
+   ✅ SPINNER + LOADING BUTTON + GLOBAL OVERLAY
+   ========================================================= */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* small spinner untuk di tombol */
+.btn .btn-spin{
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: rgba(255,255,255,.95);
+  animation: spin .8s linear infinite;
+}
+
+/* state tombol saat loading */
+.btn.is-loading{
+  opacity: .75;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none !important;
+}
+
+/* overlay full screen */
+.busy-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.busy-box{
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(30, 41, 59, .85);
+  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+  color: #fff;
+  font-weight: 800;
+}
+
+.busy-box .spin{
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 3px solid rgba(255,255,255,.25);
+  border-top-color: rgba(255,255,255,.95);
+  animation: spin .9s linear infinite;
+}
+
+.busy-text{
+  font-size: 14px;
+  color: rgba(241,245,249,.95);
+}

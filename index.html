@@ -507,6 +507,14 @@
   </div>
 </div>
 
+  <!-- ✅ GLOBAL BUSY OVERLAY (spinner layar) -->
+  <div id="busy-overlay" class="busy-overlay hidden" aria-hidden="true">
+    <div class="busy-box" role="status" aria-live="polite">
+      <div class="spin" aria-hidden="true"></div>
+      <div class="busy-text" id="busy-text">Memproses…</div>
+    </div>
+  </div>
+
   <script>// kecil untuk toggle modal
     function show(el){ el.classList.remove('hidden'); }
     function hide(el){ el.classList.add('hidden'); }</script>

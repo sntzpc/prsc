@@ -64,6 +64,76 @@ function getOrCreateDeviceId(){
   return id;
 }
 
+/* =========================================================
+   ✅ BUSY / SPINNER + ANTI DOUBLE CLICK (GLOBAL)
+   ========================================================= */
+
+function setBtnLoading(btn, on, label){
+  if (!btn) return;
+  if (on){
+    if (btn.dataset.busy === '1') return;
+    btn.dataset.busy = '1';
+    btn.dataset.origHtml = btn.innerHTML;
+    btn.classList.add('is-loading');
+    btn.disabled = true;
+
+    const txt = label || btn.dataset.loadingLabel || 'Memproses…';
+    btn.innerHTML = `<span class="btn-spin" aria-hidden="true"></span><span>${txt}</span>`;
+    btn.setAttribute('aria-busy', 'true');
+  } else {
+    btn.dataset.busy = '0';
+    btn.classList.remove('is-loading');
+    btn.disabled = false;
+
+    if (btn.dataset.origHtml) btn.innerHTML = btn.dataset.origHtml;
+    btn.removeAttribute('aria-busy');
+  }
+}
+
+function busyOverlay(on, text){
+  const ov = document.getElementById('busy-overlay');
+  const tx = document.getElementById('busy-text');
+  if (!ov) return;
+
+  if (on){
+    if (tx) tx.textContent = text || 'Memproses…';
+    ov.classList.remove('hidden');
+    ov.setAttribute('aria-hidden', 'false');
+  } else {
+    ov.classList.add('hidden');
+    ov.setAttribute('aria-hidden', 'true');
+  }
+}
+
+const Busy = {
+  async wrap(btn, fn, opts = {}){
+    if (btn && btn.dataset.busy === '1') return; // anti spam click
+    const label = opts.text || btn?.dataset?.loadingLabel || 'Memproses…';
+    const useOverlay = !!opts.overlay;
+    const overlayText = opts.overlayText || label || 'Memproses…';
+
+    try{
+      setBtnLoading(btn, true, label);
+      if (useOverlay) busyOverlay(true, overlayText);
+      return await fn();
+    } finally {
+      if (useOverlay) busyOverlay(false);
+      setBtnLoading(btn, false);
+    }
+  }
+};
+
+// mutex sederhana
+function runExclusive(key, fn){
+  State._locks = State._locks || {};
+  if (State._locks[key]) return Promise.resolve(null);
+  State._locks[key] = true;
+  return (async()=>{
+    try { return await fn(); }
+    finally { State._locks[key] = false; }
+  })();
+}
+
 /* =========================
    Face-api models
    ========================= */
@@ -632,71 +702,73 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
    4) send verifyAndLog (device_id included)
    ========================= */
 async function doPresensi(){
-  try{
-    await checkLocation({ force:false, silent:false, maxAgeMs:45000 });
-    if (!State.loc.inFence){
-      UI.setResult('Anda di luar area geo-fence. Dekati area Training Center.', false);
-      return;
-    }
-
-    const mode = $('#mode').value;
-    const payload = {
-      mode,
-      lat: State.loc.lat,
-      lng: State.loc.lng,
-      accuracy_m: State.loc.accuracy_m,
-      device_id: State.deviceId
-    };
-
-    if (mode === 'training'){
-      payload.training_type = $('#training_type').value || '';
-      payload.activity = $('#activity').value || '';
-      payload.material = $('#material').value || '';
-    } else {
-      payload.gate_reason = $('#gate_reason').value || '';
-      payload.gate_direction = State.gateDirection || '';
-      if (!payload.gate_direction){
-        UI.setResult('Silakan gunakan tombol Masuk atau Keluar.', false);
+  return runExclusive('presensi', async()=>{
+    try{
+      await checkLocation({ force:false, silent:false, maxAgeMs:45000 });
+      if (!State.loc.inFence){
+        UI.setResult('Anda di luar area geo-fence. Dekati area Training Center.', false);
         return;
       }
-    }
 
-    // liveness
-    const live = await runLiveness($('#video'));
-    if (!live.ok){
-      UI.setResult('Liveness gagal. Coba lagi (cahaya cukup, wajah penuh di kamera).', false);
+      const mode = $('#mode').value;
+      const payload = {
+        mode,
+        lat: State.loc.lat,
+        lng: State.loc.lng,
+        accuracy_m: State.loc.accuracy_m,
+        device_id: State.deviceId
+      };
+
+      if (mode === 'training'){
+        payload.training_type = $('#training_type').value || '';
+        payload.activity = $('#activity').value || '';
+        payload.material = $('#material').value || '';
+      } else {
+        payload.gate_reason = $('#gate_reason').value || '';
+        payload.gate_direction = State.gateDirection || '';
+        if (!payload.gate_direction){
+          UI.setResult('Silakan gunakan tombol Masuk atau Keluar.', false);
+          return;
+        }
+      }
+
+      // liveness
+      const live = await runLiveness($('#video'));
+      if (!live.ok){
+        UI.setResult('Liveness gagal. Coba lagi (cahaya cukup, wajah penuh di kamera).', false);
+        payload.liveness = live;
+        return;
+      }
       payload.liveness = live;
-      return;
-    }
-    payload.liveness = live;
 
-    UI.setResult('Memindai wajah (multi-shot)…', true);
+      UI.setResult('Memindai wajah (multi-shot)…', true);
 
-    const descAvg = await captureMultiShotAvg($('#video'), 3, 220, 30);
-    if (!descAvg){
-      UI.setResult('Wajah tidak stabil terdeteksi. Coba lagi.', false);
-      return;
-    }
-    payload.descriptor_avg = descAvg;
+      const descAvg = await captureMultiShotAvg($('#video'), 3, 220, 30);
+      if (!descAvg){
+        UI.setResult('Wajah tidak stabil terdeteksi. Coba lagi.', false);
+        return;
+      }
+      payload.descriptor_avg = descAvg;
 
-    const r = await api('verifyAndLog', payload);
-    if (r.ok){
-      UI.setResult(
-        `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
-         Jarak center: ${Math.round(r.distance_m)} m<br/>
-         Deteksi Device: <b>${r.device_detect_enabled ? 'ON' : 'OFF'}</b> • Status: <b>${escapeHtml(r.status || '')}</b><br/>
-         ${r.device_bound ? '✅ Device berhasil diikat (binding) pertama kali.' : ''}`,
-        true
-      );
-    } else {
-      UI.setResult(`${escapeHtml(r.error || 'Gagal')}<br/>Status: ${escapeHtml(r.status || '-')}`, false);
+      const r = await api('verifyAndLog', payload);
+      if (r.ok){
+        UI.setResult(
+          `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
+           Jarak center: ${Math.round(r.distance_m)} m<br/>
+           Deteksi Device: <b>${r.device_detect_enabled ? 'ON' : 'OFF'}</b> • Status: <b>${escapeHtml(r.status || '')}</b><br/>
+           ${r.device_bound ? '✅ Device berhasil diikat (binding) pertama kali.' : ''}`,
+          true
+        );
+      } else {
+        UI.setResult(`${escapeHtml(r.error || 'Gagal')}<br/>Status: ${escapeHtml(r.status || '-')}`, false);
+      }
+    } catch(err){
+      UI.setResult(String(err?.message || err), false);
+    } finally {
+      State.gateDirection = null;
+      updateScanBadge();
     }
-  } catch(err){
-    UI.setResult(String(err?.message || err), false);
-  } finally {
-    State.gateDirection = null;
-    updateScanBadge();
-  }
+  });
 }
 
 /* =========================
@@ -705,52 +777,50 @@ async function doPresensi(){
    - photo saved
    ========================= */
 async function doEnroll(){
-  try{
-    if (!isAdminSessionValid()){
-      UI.setAdminResult('Admin belum login / sesi habis. Login ulang.', false);
-      return;
+  return runExclusive('enroll', async()=>{
+    try{
+      if (!isAdminSessionValid()){
+        UI.setAdminResult('Admin belum login / sesi habis. Login ulang.', false);
+        return;
+      }
+
+      const nik = ($('#a_nik').value || '').trim();
+      const nama = ($('#a_nama').value || '').trim();
+      const bio  = ($('#a_bio').value || '').trim();
+      const note = ($('#a_note').value || '').trim();
+      if (!nik || !nama){
+        UI.setAdminResult('NIK dan Nama wajib.', false);
+        return;
+      }
+
+      UI.setAdminResult('Rekam wajah (multi-shot 5x)… jangan banyak bergerak.', true);
+
+      const descAvg = await captureMultiShotAvg($('#a_video'), 5, 220, 45);
+      if (!descAvg){
+        UI.setAdminResult('Gagal menangkap 5 shot wajah. Pastikan cahaya dan wajah jelas.', false);
+        return;
+      }
+
+      const photo = await capturePhotoDataURL($('#a_video'));
+
+      const r = await api('enroll', {
+        admin_token: State.adminToken,
+        nik, nama,
+        biodata: { bio, note },
+        descriptor_avg: descAvg,
+        photo_base64: photo
+      });
+
+      if (r.ok){
+        UI.setAdminResult(`Tersimpan: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})`, true);
+      } else {
+        UI.setAdminResult(r.error || 'Gagal enroll', false);
+      }
+    } catch(err){
+      if (handleAdminAuthError_(err)) return;
+      UI.setAdminResult(String(err?.message || err), false);
     }
-
-    const nik = ($('#a_nik').value || '').trim();
-    const nama = ($('#a_nama').value || '').trim();
-    const bio  = ($('#a_bio').value || '').trim();
-    const note = ($('#a_note').value || '').trim();
-    if (!nik || !nama){
-      UI.setAdminResult('NIK dan Nama wajib.', false);
-      return;
-    }
-
-    UI.setAdminResult('Rekam wajah (multi-shot 5x)… jangan banyak bergerak.', true);
-
-    // Liveness optional untuk enroll (boleh aktifkan kalau mau)
-    // const live = await runLiveness($('#a_video'));
-    // if (!live.ok){ UI.setAdminResult('Liveness enroll gagal. Coba lagi.', false); return; }
-
-    const descAvg = await captureMultiShotAvg($('#a_video'), 5, 220, 45);
-    if (!descAvg){
-      UI.setAdminResult('Gagal menangkap 5 shot wajah. Pastikan cahaya dan wajah jelas.', false);
-      return;
-    }
-
-    const photo = await capturePhotoDataURL($('#a_video'));
-
-    const r = await api('enroll', {
-      admin_token: State.adminToken,
-      nik, nama,
-      biodata: { bio, note },
-      descriptor_avg: descAvg,
-      photo_base64: photo
-    });
-
-    if (r.ok){
-      UI.setAdminResult(`Tersimpan: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})`, true);
-    } else {
-      UI.setAdminResult(r.error || 'Gagal enroll', false);
-    }
-  } catch(err){
-    if (handleAdminAuthError_(err)) return;
-    UI.setAdminResult(String(err?.message || err), false);
-  }
+  });
 }
 
 /* =========================
@@ -1270,20 +1340,67 @@ function initAdminModal(){
   ['r_start','r_end','l_start','l_end'].forEach(id=>{ const el = $('#'+id); if (el) el.value = today; });
 
     // actions
-  $('#btn-enroll').addEventListener('click', doEnroll);
-  $('#btn-rekap').addEventListener('click', adminRekap);
-  $('#btn-logs').addEventListener('click', adminLogs);
-  $('#btn-export').addEventListener('click', adminExportCsv);
+    $('#btn-enroll').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-enroll'),
+    async()=> await doEnroll(),
+    { text:'Menyimpan…', overlay:true, overlayText:'Enroll: Simpan + Rekam Wajah…' }
+    ));
 
-  // NEW: settings
-  $('#btn-save-settings').addEventListener('click', adminSaveSettings);
-  $('#btn-reload-settings').addEventListener('click', adminLoadSettings);
-  $('#btn-change-pin').addEventListener('click', adminChangePin);
+    $('#btn-rekap').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-rekap'),
+    async()=> await adminRekap(),
+    { text:'Mengambil…', overlay:true, overlayText:'Mengambil Rekap…' }
+    ));
 
-  // NEW: materi CRUD
-  $('#btn-m-refresh').addEventListener('click', adminLoadMateri);
-  $('#btn-m-save').addEventListener('click', adminSaveMateri);
-  $('#btn-m-reset').addEventListener('click', ()=>{ resetMateriForm(); $('#materi-info').textContent='-'; });
+    $('#btn-logs').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-logs'),
+    async()=> await adminLogs(),
+    { text:'Mengambil…', overlay:true, overlayText:'Mengambil Logs…' }
+    ));
+
+    $('#btn-export').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-export'),
+    async()=> await adminExportCsv(),
+    { text:'Export…', overlay:true, overlayText:'Menyiapkan file CSV…' }
+    ));
+
+  // settings
+    $('#btn-save-settings').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-save-settings'),
+    async()=> await adminSaveSettings(),
+    { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan Settings…' }
+    ));
+
+    $('#btn-reload-settings').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-reload-settings'),
+    async()=> await adminLoadSettings(),
+    { text:'Reload…', overlay:true, overlayText:'Reload Settings…' }
+    ));
+
+    $('#btn-change-pin').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-change-pin'),
+    async()=> await adminChangePin(),
+    { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan PIN Baru…' }
+    ));
+
+  // materi CRUD
+    $('#btn-m-refresh').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-m-refresh'),
+    async()=> await adminLoadMateri(),
+    { text:'Refresh…', overlay:true, overlayText:'Memuat daftar materi…' }
+    ));
+
+    $('#btn-m-save').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-m-save'),
+    async()=> await adminSaveMateri(),
+    { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan materi…' }
+    ));
+
+    $('#btn-m-reset').addEventListener('click', ()=> Busy.wrap(
+    $('#btn-m-reset'),
+    async()=>{ resetMateriForm(); $('#materi-info').textContent='-'; },
+    { text:'Reset…' }
+    ));
 
   // camera toggle peserta
   const btnPesertaRotate = $('#btn-cam-rotate');
@@ -1421,15 +1538,24 @@ async function main(){
   initAdminModal();
   initCameraModals();
 
-    $('#btn-checkloc').addEventListener('click', async()=>{
+    $('#btn-checkloc').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-checkloc'),
+  async()=>{
     try{
       await checkLocation({ force:true, silent:false });
       UI.setResult('Lokasi berhasil diperbarui.', true);
     } catch(e){
       UI.setResult(e.message || String(e), false);
     }
-  });
-  $('#btn-presensi').addEventListener('click', doPresensi);
+  },
+  { text:'Cek Lokasi…' }
+));
+
+$('#btn-presensi').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-presensi'),
+  async()=> await doPresensi(),
+  { text:'Memproses…' } // tombol spinner saja (tanpa overlay) agar video tetap terlihat
+));
 
   // camera peserta + admin
   // load config dulu (agar liveness/threshold/geofence siap)
