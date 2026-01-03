@@ -1,19 +1,31 @@
 const $ = (s, r=document) => r.querySelector(s);
 
 const UI = {
+  // pilih target result: kalau modal kamera peserta sedang tampil -> pakai result-cam
+  // kalau tidak -> pakai result-main
+  _resultEl(){
+    const pModal = document.getElementById('pcam-modal');
+    const inCam = pModal && !pModal.classList.contains('hidden');
+    return document.getElementById(inCam ? 'result-cam' : 'result-main');
+  },
+
   setStatus(text){
-    const el = $('#result');
+    const el = this._resultEl();
     if (!el) return;
     el.innerHTML = `<div class="small">${text}</div>`;
   },
 
   setResult(msg, ok=true){
-    $('#result').innerHTML =
+    const el = this._resultEl();
+    if (!el) return;
+    el.innerHTML =
       `<div style="font-weight:900;margin-bottom:6px;">${ok?'✅':'❌'} ${ok?'BERHASIL':'GAGAL'}</div><div class="small">${msg}</div>`;
   },
 
   setAdminResult(msg, ok=true){
-    $('#admin-result').innerHTML =
+    const el = document.getElementById('admin-result');
+    if (!el) return;
+    el.innerHTML =
       `<div style="font-weight:900;margin-bottom:6px;">${ok?'✅':'❌'} ${ok?'OK':'ERROR'}</div><div class="small">${msg}</div>`;
   }
 };
