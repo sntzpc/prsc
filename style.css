@@ -16,6 +16,12 @@
   --text-primary: #f1f5f9;
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
+
+  /* Button */
+  .btnx{ border:1px solid var(--bd); background:#fff; border-radius:10px; padding:9px 12px; font-weight:700; cursor:pointer; }
+  .btnx.primary{ background:#111827; color:#fff; border-color:#111827; }
+  .btnx.danger{ background:#b91c1c; color:#fff; border-color:#b91c1c; }
+  .btnx:disabled{ opacity:.5; cursor:not-allowed; }
   
   /* Border and shadows */
   --border-color: rgba(255, 255, 255, 0.08);

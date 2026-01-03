@@ -1,10 +1,17 @@
 const $ = (s, r=document) => r.querySelector(s);
 
 const UI = {
+  setStatus(text){
+    const el = $('#result');
+    if (!el) return;
+    el.innerHTML = `<div class="small">${text}</div>`;
+  },
+
   setResult(msg, ok=true){
     $('#result').innerHTML =
       `<div style="font-weight:900;margin-bottom:6px;">${ok?'✅':'❌'} ${ok?'BERHASIL':'GAGAL'}</div><div class="small">${msg}</div>`;
   },
+
   setAdminResult(msg, ok=true){
     $('#admin-result').innerHTML =
       `<div style="font-weight:900;margin-bottom:6px;">${ok?'✅':'❌'} ${ok?'OK':'ERROR'}</div><div class="small">${msg}</div>`;
@@ -448,6 +455,16 @@ function toggleMaterial(){
   const need = (act === 'sesi kelas' || act === 'field day');
   $('#material-wrap').style.display = need ? 'block' : 'none';
   if (!need){ $('#material').value=''; $('#suggest').innerHTML=''; }
+}
+
+function togglePesertaCameraBox(){
+  const mode = ($('#mode')?.value || 'training');
+  const box = $('#pcam-box');
+  if (!box) return;
+
+  // ✅ Gate: sembunyikan box kamera "Buka Kamera"
+  // ✅ Training: tampilkan kembali
+  box.style.display = (mode === 'gate') ? 'none' : '';
 }
 
 function validateEnablePresensi(){
@@ -1240,6 +1257,7 @@ function initMode(){
       trainingBox.classList.add('hidden');
       // di mobilitas, arah akan ditentukan lewat tombol Masuk/Keluar
     }
+    togglePesertaCameraBox();
     validateEnablePresensi();
     updateScanBadge();
   }
@@ -1648,6 +1666,85 @@ async function adminPesertaMeta(){
   return r;
 }
 
+/* =========================================================
+   ✅ DASHBOARD FILTER CASCADING (TrainingType -> Group -> Activity -> Material)
+   ========================================================= */
+
+function isNeedMaterialByActivity_(act){
+  const a = String(act||'').trim().toLowerCase();
+  return (a === 'sesi kelas' || a === 'field day');
+}
+
+function fillSelectKeep(el, items, placeholder){
+  // wrapper agar aman kalau null
+  fillSelect(el, items || [], placeholder || 'Pilih…');
+}
+
+function dashBindCascadingFilters(meta){
+  // simpan meta dashboard agar bisa dipakai ulang
+  State._dashMeta = meta || {};
+
+  const ttEl = $('#d_training_type');
+  const grpEl = $('#d_group');
+  const actEl = $('#d_activity');
+  const matEl = $('#d_material');
+
+  if (!ttEl || !grpEl || !actEl || !matEl) return;
+
+  // 1) isi TRAINING TYPE
+  const trainingTypes = (meta.jenis_pelatihan || meta.training_types || []);
+  fillSelectKeep(ttEl, trainingTypes, 'Pilih Training Type…');
+
+  // 2) fungsi refresh berjenjang
+  const refreshCascade = ()=>{
+    const tt = (ttEl.value || '').trim();
+    const groupsByType = meta.groups_by_training_type || {};
+    const actsByType   = meta.activities_by_training_type || {};
+    const matsByTypeAct= meta.materials_by_type_activity || {};
+    const matsAll      = meta.materials_all || [];
+
+    // GROUP tergantung TRAINING TYPE
+    const groups = tt ? (groupsByType[tt] || []) : (meta.groups || []);
+    fillSelectKeep(grpEl, groups, 'Pilih Batch');
+
+    // ACTIVITY tergantung TRAINING TYPE
+    const acts = tt ? (actsByType[tt] || []) : [];
+    fillSelectKeep(actEl, acts, 'Pilih Activity…');
+
+    // MATERI tergantung ACTIVITY (boleh kosong)
+    const act = (actEl.value || '').trim();
+
+    if (!isNeedMaterialByActivity_(act)){
+      // activity bukan sesi kelas/field day => materi boleh kosong & dropdown tetap ada
+      fillSelectKeep(matEl, [], '(Materi opsional)');
+      matEl.value = '';
+      return;
+    }
+
+    // activity butuh materi => tampilkan opsi, tapi tetap boleh kosong (user boleh pilih blank)
+    const matsUsed = (tt && act && matsByTypeAct[tt] && matsByTypeAct[tt][act]) ? matsByTypeAct[tt][act] : [];
+    const mats = (matsUsed && matsUsed.length) ? matsUsed : matsAll; // fallback ke master list
+    fillSelectKeep(matEl, mats, '(Boleh kosong / semua materi)');
+  };
+
+  // 3) event chain
+  ttEl.addEventListener('change', ()=>{
+    refreshCascade();
+  });
+
+  grpEl.addEventListener('change', ()=>{
+    // group tidak memengaruhi activity/materi sesuai requirement Anda,
+    // tapi tetap validasi bisa jalan kalau Anda mau tambah aturan nanti
+  });
+
+  actEl.addEventListener('change', ()=>{
+    refreshCascade();
+  });
+
+  // 4) initial refresh
+  refreshCascade();
+}
+
 function fillSelect(el, items, placeholder='Pilih…'){
   if (!el) return;
   const cur = el.value || '';
@@ -1659,10 +1756,14 @@ function fillSelect(el, items, placeholder='Pilih…'){
 async function initDashboardMeta(){
   try{
     const meta = await adminPesertaMeta();
-    fillSelect($('#d_group'), meta.groups || []);
+
+    // ✅ dashboard TRAINING: cascading
+    dashBindCascadingFilters(meta);
+
+    // ✅ dashboard GATE tetap pakai group global (opsional)
     fillSelect($('#g_group'), meta.groups || [], '(opsional)');
+
   } catch(e){
-    // jangan fatal, tapi kasih info
     UI.setAdminResult(String(e.message || e), false);
   }
 }
@@ -1823,6 +1924,8 @@ function bindGateViewToggle(){
 }
 
 async function main(){
+  UI.setStatus('⏳ Aplikasi sedang disiapkan…');
+  
   State.deviceId = getOrCreateDeviceId();
   $('#device-info').innerHTML = `Device ID: <b>${escapeHtml(State.deviceId)}</b>`;
 

@@ -6,6 +6,7 @@
   <title>Presensi Training Center</title>
 
   <link rel="stylesheet" href="./style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ctext y='54' x='6' font-size='56'%3E📸%3C/text%3E%3C/svg%3E" />
 
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
@@ -13,14 +14,28 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
+        <!--
         <div class="logo">TC</div>
+        -->
         <div>
           <div class="title">Presensi Training Center</div>
           <div class="sub">Face Recognition + GeoFencing</div>
         </div>
       </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="pill" id="loc-status">Sedang cek lokasi…</span>
+        <button class="btnx" id="btn-checkloc" data-loading-label="Cek Lokasi…">Cek Lokasi</button>
+        <button class="btnx primary" id="btn-admin-open">Admin</button>
+      </div>
+      <!--
       <button id="btn-admin-open" class="btn ghost">Admin</button>
+      -->
     </header>
+
+    <div>
+          <label>Status</label>
+          <div id="result" class="small">-</div>
+    </div>
 
     <main class="card">
       <section class="pane active" id="pane-peserta">
@@ -33,11 +48,13 @@
             </select>
           </div>
 
+          <!--
           <div>
             <label>Status Lokasi</label>
             <div class="pill" id="loc-status">Belum cek lokasi</div>
             <button id="btn-checkloc" class="btn ghost">Cek Lokasi</button>
           </div>
+          -->
         </div>
 
         <div id="training-fields" class="box">
@@ -83,22 +100,22 @@
             <div>
               <label>Arah</label>
               <div class="grid2">
-                <button id="btn-in" class="btn">Masuk</button>
-                <button id="btn-out" class="btn danger">Keluar</button>
+                <button id="btn-in" class="btn">Datang/Masuk</button>
+                <button id="btn-out" class="btn danger">Pulang/Keluar</button>
               </div>
               <div class="hint">Mobilitas (Masuk/Keluar) akan menjalankan pemindaian.</div>
             </div>
           </div>
         </div>
 
-        <div class="box mt">
+        <div class="box mt" id="pcam-box">
         <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
             <div class="small">Kamera full-screen.</div>
             <button id="btn-open-pcam" class="btn primary" type="button">Buka Kamera</button>
         </div>
         </div>
 
-        <div class="small mt2" id="device-info"></div>
+        <div class="box mt" id="device-info" style="font-size:12px; color:var(--mut)"></div>
       </section>
 
       
@@ -107,7 +124,7 @@
         <div class="modal-card">
           <div class="modal-head">
             <div style="font-weight:900;">Admin Panel</div>
-            <button class="btn ghost" id="btn-admin-close">Tutup</button>
+            <button class="btn ghost" id="btn-admin-close" type="button">Tutup</button>
           </div>
 
           <!-- LOGIN -->
@@ -179,16 +196,6 @@
                     <input id="d_date" type="date"/>
                 </div>
                 <div>
-                    <label>Batch</label>
-                    <select id="d_group">
-                    <option value="">Pilih…</option>
-                    </select>
-                    <div class="small">Sumber: sheet <b>peserta</b> kolom <b>Batch</b>.</div>
-                </div>
-                </div>
-
-                <div class="grid2 mt">
-                <div>
                     <label>Training Type</label>
                     <select id="d_training_type">
                     <option value="">Pilih…</option>
@@ -198,6 +205,16 @@
                     <option>2nd Stream</option>
                     <option>Uji Kompetensi</option>
                     </select>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Batch</label>
+                    <select id="d_group">
+                    <option value="">Pilih…</option>
+                    </select>
+                    <div class="small">Sumber: sheet <b>peserta</b> kolom <b>Batch</b>.</div>
                 </div>
                 <div>
                     <label>Activity</label>
@@ -623,7 +640,9 @@
   <div class="modal-card cam-modal-card">
     <div class="modal-head cam-modal-head">
       <div style="font-weight:900;">Kamera Enroll Admin</div>
+      <div>
       <button class="btn ghost" id="btn-close-acam" type="button">Tutup</button>
+      </div>
     </div>
 
     <div class="result" id="admin-result"></div>
