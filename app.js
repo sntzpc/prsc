@@ -923,7 +923,7 @@ function adminLogout(){
   State.adminExp = 0;
   localStorage.removeItem('admin_token');
   localStorage.removeItem('admin_exp');
-  $('#admin-session').textContent = 'Logout.';
+  $('#admin-session').textContent = 'Silahkan masukkan PIN dan klik Login';
   $('#btn-admin-logout').disabled = true;
 
   $('#admin-pane').classList.add('hidden');
