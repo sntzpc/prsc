@@ -148,6 +148,7 @@
                 <button class="tab2" data-atab="logs">Logs</button>
                 <button class="tab2" data-atab="settings">Settings</button>
                 <button class="tab2" data-atab="materi">Materi</button>
+                <button class="tab2" data-atab="nametag">Card</button>
             </div>
 
             <!-- ENROLL -->
@@ -493,6 +494,107 @@
                 </div>
                 </div>
 
+                <!-- =========================
+                    NAME TAG SETTINGS (PRINT + SLIDER BOUNDS)
+                    Letakkan di tab Settings Admin
+                    ========================= -->
+                <div class="mt">
+                  <label style="font-weight:900;">NameTag - Print Layout (Padding & Gap)</label>
+                  <div class="small">Atur jarak rapat/longgar saat cetak. Nilai mm. Simpan ke server.</div>
+
+                  <div class="grid2" style="gap:10px;margin-top:10px;">
+                    <div class="card" style="padding:10px;">
+                      <b>2up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_2up_cols" type="number" min="1" max="3" value="1"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_2up_pad" type="number" min="0" max="20" value="10"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_2up_gap" type="number" min="0" max="20" value="8"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>4up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_4up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_4up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_4up_gap" type="number" min="0" max="20" value="6"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>6up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_6up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_6up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_6up_gap" type="number" min="0" max="20" value="5"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>8up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_8up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_8up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_8up_gap" type="number" min="0" max="20" value="4"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>10up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_10up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_10up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_10up_gap" type="number" min="0" max="20" value="3"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>12up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_12up_cols" type="number" min="1" max="3" value="3"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_12up_pad" type="number" min="0" max="20" value="7"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_12up_gap" type="number" min="0" max="20" value="3"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt">
+                  <label style="font-weight:900;">NameTag - Batas Slider (Min/Max/Default)</label>
+                  <div class="small">Agar admin bisa menentukan range adjust font/posisi tanpa ubah HTML.</div>
+
+                  <div class="grid2" style="gap:10px;margin-top:10px;">
+                    <div class="card" style="padding:10px;">
+                      <b>Header</b>
+                      <div class="nt-row"><span>Head FS min</span><input id="s_nt_head_fs_min" type="number" value="6"></div>
+                      <div class="nt-row"><span>Head FS max</span><input id="s_nt_head_fs_max" type="number" value="32"></div>
+                      <div class="nt-row"><span>Head FS def</span><input id="s_nt_head_fs_def" type="number" value="14"></div>
+
+                      <div class="nt-row"><span>Head Y min</span><input id="s_nt_head_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Head Y max</span><input id="s_nt_head_y_max" type="number" value="60"></div>
+                      <div class="nt-row"><span>Head Y def</span><input id="s_nt_head_y_def" type="number" value="0"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>Subheader</b>
+                      <div class="nt-row"><span>Sub FS min</span><input id="s_nt_sub_fs_min" type="number" value="6"></div>
+                      <div class="nt-row"><span>Sub FS max</span><input id="s_nt_sub_fs_max" type="number" value="32"></div>
+                      <div class="nt-row"><span>Sub FS def</span><input id="s_nt_sub_fs_def" type="number" value="12"></div>
+
+                      <div class="nt-row"><span>Sub Y min</span><input id="s_nt_sub_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Sub Y max</span><input id="s_nt_sub_y_max" type="number" value="100"></div>
+                      <div class="nt-row"><span>Sub Y def</span><input id="s_nt_sub_y_def" type="number" value="0"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>Nama & Foto</b>
+                      <div class="nt-row"><span>Name FS min</span><input id="s_nt_name_fs_min" type="number" value="6"></div>
+                      <div class="nt-row"><span>Name FS max</span><input id="s_nt_name_fs_max" type="number" value="100"></div>
+                      <div class="nt-row"><span>Name FS def</span><input id="s_nt_name_fs_def" type="number" value="44"></div>
+
+                      <div class="nt-row"><span>Name Y min</span><input id="s_nt_name_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Name Y max</span><input id="s_nt_name_y_max" type="number" value="80"></div>
+                      <div class="nt-row"><span>Name Y def</span><input id="s_nt_name_y_def" type="number" value="0"></div>
+
+                      <div class="nt-row"><span>Photo S min</span><input id="s_nt_photo_s_min" type="number" value="50"></div>
+                      <div class="nt-row"><span>Photo S max</span><input id="s_nt_photo_s_max" type="number" value="300"></div>
+                      <div class="nt-row"><span>Photo S def</span><input id="s_nt_photo_s_def" type="number" value="160"></div>
+
+                      <div class="nt-row"><span>Photo Y min</span><input id="s_nt_photo_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Photo Y max</span><input id="s_nt_photo_y_max" type="number" value="80"></div>
+                      <div class="nt-row"><span>Photo Y def</span><input id="s_nt_photo_y_def" type="number" value="0"></div>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="actions">
                 <button class="btn primary" id="btn-save-settings">Simpan Settings</button>
                 <button class="btn" id="btn-reload-settings">Reload</button>
@@ -584,6 +686,181 @@
                 <div class="small mt2">Tip: Materi yang <b>active=TRUE</b> yang muncul di autosuggest peserta.</div>
             </div>
             </div>
+
+            <!-- NAMETAG -->
+            <div class="apane" id="apane-nametag">
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:10px;">Pengaturan Name Tag (disimpan di perangkat)</div>
+
+                <div class="grid2">
+                  <div>
+                    <label>Tipe Name Tag</label>
+                    <select id="nt_type">
+                      <option value="A">Tipe A (Tanpa Foto)</option>
+                      <option value="B">Tipe B (Dengan Foto)</option>
+                    </select>
+                    <div class="small">Tipe B akan mencoba mengambil foto peserta dari folder Drive berdasarkan NIK.</div>
+                  </div>
+
+                  <div>
+                    <label>Latar / Background</label>
+                    <select id="nt_bg">
+                      <option value="dark">Dark Pattern</option>
+                      <option value="green">Green Pattern</option>
+                      <option value="plain">Plain</option>
+                    </select>
+                    <div class="small">Nanti bisa Anda kembangkan jadi upload background custom.</div>
+                  </div>
+                </div>
+
+                <div class="grid2 mt">
+                  <div>
+                    <label>Nama Kegiatan</label>
+                    <input id="nt_event" type="text" placeholder="contoh: PRE KLP1 AGRO 18/2025"/>
+                  </div>
+                  <div>
+                    <label>Lokasi Kegiatan</label>
+                    <input id="nt_loc" type="text" placeholder="contoh: SERIANG TRAINING CENTER"/>
+                  </div>
+                </div>
+
+                <div class="grid2 mt">
+                  <div>
+                    <label>Tanggal Kegiatan</label>
+                    <input id="nt_date" type="text" placeholder="contoh: 1-5 Desember 2025"/>
+                  </div>
+
+                  <div>
+                    <label>Ukuran Cetak per A4</label>
+                    <select id="nt_layout">
+                      <option value="2up">2-up (2 nt per A4)</option>
+                      <option value="4up">4-up (4 nt per A4)</option>
+                      <option value="6up">6-up (6 nt per A4)</option>
+                      <option value="8up">8-up (8 nt per A4)</option>
+                      <option value="10up">10-up (10 nt per A4)</option>
+                      <option value="12up">12-up (12 nt per A4)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid2 mt">
+                  <div>
+                    <label>Logo (Pilih file)</label>
+                      <div class="row" style="gap:10px;align-items:center;">
+                        <input id="nt_logo_file" type="file" accept="image/*">
+                        <button class="btn" type="button" id="btn-nt-logo-clear">Hapus</button>
+                      </div>
+                      <div class="small" id="nt_logo_info">-</div>
+                      <input id="nt_logo" type="hidden" />
+                    <div class="small">Jika Anda ingin ambil dari Drive/Sheet juga bisa nanti.</div>
+                  </div>
+                  <div>
+                    <label>Co-Logo (Pilih file)</label>
+                      <div class="row" style="gap:10px;align-items:center;">
+                        <input id="nt_cologo_file" type="file" accept="image/*">
+                        <button class="btn" type="button" id="btn-nt-cologo-clear">Hapus</button>
+                      </div>
+                      <div class="small" id="nt_cologo_info">-</div>
+                      <input id="nt_cologo" type="hidden" />
+                  </div>
+                </div>
+
+                <div class="actions">
+                  <button class="btn primary" id="btn-nt-save">Simpan Setting</button>
+                  <button class="btn" id="btn-nt-send">Kirim ke Server</button>
+                </div>
+
+                <div class="small" id="nt_info">-</div>
+              </div>
+
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:10px;">Pilih Peserta (filter dari server)</div>
+
+                <div class="grid2">
+                  <div>
+                    <label>Training Type</label>
+                    <select id="nt_training_type">
+                      <option value="">Pilih Training Type…</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Batch</label>
+                    <select id="nt_group">
+                      <option value="">Pilih Batch…</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="actions">
+                  <button class="btn primary" id="btn-nt-load">Muat Peserta</button>
+                  <button class="btn" id="btn-nt-clear">Kosongkan Antrian Cetak</button>
+                  <button class="btn danger" id="btn-nt-resetlocal" type="button">Reset Pilihan</button>
+                </div>
+                <div class="small mt" id="nt_pick_info">-</div>
+
+                <div class="tablewrap">
+                  <table class="tbl" id="nt_table">
+                    <thead>
+                      <tr>
+                        <th>NIK</th><th>Nama</th><th>Batch</th><th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+
+                <div class="small mt">Klik <b>Tambah</b> untuk masuk antrian cetak.</div>
+              </div>
+
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:10px;">Preview & Adjust</div>
+
+                <div class="grid2">
+                  <div>
+                    <label>Antrian Cetak</label>
+                    <div class="nt-queue" id="nt_queue"></div>
+                    <div class="small mt">Klik item antrian untuk preview.</div>
+
+                    <div class="mt">
+                      <label>Adjust Header (Event / Lokasi / Tanggal)</label>
+                      <div class="nt-sliders">
+                        <div class="nt-row"><span>Font Header</span><input id="nt_head_fs" type="range" min="6" max="32" value="14"></div>
+                        <div class="nt-row"><span>Header Y</span><input id="nt_head_y" type="range" min="-80" max="60" value="0"></div>
+
+                        <div class="nt-row"><span>Font Subheader</span><input id="nt_sub_fs" type="range" min="6" max="32" value="12"></div>
+                        <div class="nt-row"><span>Subheader Y</span><input id="nt_sub_y" type="range" min="-80" max="100" value="0"></div>
+                      </div>
+                    </div>
+
+                    <div class="mt">
+                      <label>Adjust Nama (Font / Posisi)</label>
+                      <div class="nt-sliders">
+                        <div class="nt-row"><span>Font Nama</span><input id="nt_name_fs" type="range" min="6" max="100" value="44"></div>
+                        <div class="nt-row"><span>Nama Y</span><input id="nt_name_y" type="range" min="-80" max="80" value="0"></div>
+                        <div class="nt-row"><span>Foto Size</span><input id="nt_photo_s" type="range" min="50" max="300" value="160"></div>
+                        <div class="nt-row"><span>Foto Y</span><input id="nt_photo_y" type="range" min="-80" max="80" value="0"></div>
+                      </div>
+                    </div>
+
+                    <div class="actions">
+                      <button class="btn primary" id="btn-nt-print">Cetak / Simpan PDF (A4)</button>
+                    </div>
+
+                    <div class="small">Cetak memakai dialog browser (Save as PDF). Layout A4 sudah disiapkan.</div>
+                  </div>
+
+                  <div>
+                    <label>Preview</label>
+                    <div class="nt-preview-wrap">
+                      <div id="nt_preview" class="nt-card nt-typeA nt-bg-dark">
+                        <!-- akan diisi via JS -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
       </div>
@@ -598,7 +875,7 @@
   <!-- =========================================
      CAMERA MODAL: PESERTA (FULL SCREEN)
      ========================================= -->
-<div class="modal hidden cam-modal" id="pcam-modal">
+<div class="modal hidden cam-modal" id="pcam-modal" aria-hidden="true">
   <div class="modal-card cam-modal-card">
     <div class="modal-head cam-modal-head">
   <div class="cam-head-left">
@@ -636,7 +913,7 @@
 <!-- =========================================
      CAMERA MODAL: ADMIN ENROLL (FULL SCREEN)
      ========================================= -->
-<div class="modal hidden cam-modal" id="acam-modal">
+<div class="modal hidden cam-modal" id="acam-modal" aria-hidden="true">
   <div class="modal-card cam-modal-card">
     <div class="modal-head cam-modal-head">
       <div style="font-weight:900;">Kamera Enroll Admin</div>
@@ -676,9 +953,10 @@
     </div>
   </div>
 
-  <script>// kecil untuk toggle modal
-    function show(el){ el.classList.remove('hidden'); }
-    function hide(el){ el.classList.add('hidden'); }</script>
+  <script>
+  function show(el){ el.classList.remove('hidden'); el.setAttribute('aria-hidden','false'); }
+  function hide(el){ el.classList.add('hidden'); el.setAttribute('aria-hidden','true'); }
+  </script>
   <script src="./app.js"></script>
 </body>
 </html>

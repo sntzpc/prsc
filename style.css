@@ -1159,3 +1159,278 @@ canvas#overlay, canvas#a_overlay {
   top: 76px;                      /* sesuaikan tinggi header desktop */
   z-index: 29;
 }
+
+/* =========================================================
+   ✅ NAME TAG (Admin)
+   ========================================================= */
+
+.nt-preview-wrap{
+  border:1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  background: rgba(255,255,255,.03);
+  overflow: auto;
+}
+
+.nt-card{
+  --nt-name-fs: 44px;
+  --nt-name-y: 0px;
+  --nt-photo-s: 160px;
+  --nt-photo-y: 0px;
+
+  width: 520px;
+  height: 320px;
+  border-radius: 18px;
+  border: 2px solid rgba(255,255,255,.15);
+  overflow: hidden;
+  position: relative;
+  background: #0b1220;
+  box-shadow: var(--shadow-md);
+}
+
+.nt-bg-dark{
+  background:
+    radial-gradient(circle at 20% 25%, rgba(99,102,241,.22), transparent 45%),
+    radial-gradient(circle at 80% 20%, rgba(139,92,246,.20), transparent 45%),
+    radial-gradient(circle at 40% 80%, rgba(6,182,212,.14), transparent 50%),
+    #0b1220;
+}
+.nt-bg-green{
+  background:
+    radial-gradient(circle at 20% 20%, rgba(34,197,94,.18), transparent 48%),
+    radial-gradient(circle at 80% 25%, rgba(16,185,129,.18), transparent 45%),
+    radial-gradient(circle at 50% 80%, rgba(132,204,22,.12), transparent 55%),
+    #062214;
+}
+.nt-bg-plain{
+  background: #111827;
+}
+
+/* Header */
+.nt-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.10);
+}
+
+.nt-logos{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width: 80px;
+}
+.nt-logos img{
+  height: 34px;
+  width:auto;
+  border-radius: 8px;
+  background: rgba(255,255,255,.08);
+  padding: 4px;
+}
+
+.nt-headtxt{
+  flex:1;
+  text-align:center;
+  line-height:1.2;
+}
+.nt-event{
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: .3px;
+}
+.nt-sub{
+  font-weight: 800;
+  font-size: 13px;
+  color: rgba(241,245,249,.85);
+}
+
+/* Name */
+.nt-name{
+  position:absolute;
+  left: 22px;
+  right: 22px;
+  top: 120px;
+  transform: translateY(var(--nt-name-y));
+  font-weight: 900;
+  font-size: var(--nt-name-fs);
+  line-height: 1.05;
+  text-align: center;
+  color: #fff;
+  text-shadow: 0 10px 26px rgba(0,0,0,.45);
+}
+
+/* Type A: no photo */
+.nt-typeA .nt-photo{ display:none; }
+
+/* Type B: with photo */
+.nt-photo{
+  position:absolute;
+  left: 50%;
+  top: 120px;
+  transform: translate(-50%, calc(-50% + var(--nt-photo-y)));
+  width: var(--nt-photo-s);
+  height: var(--nt-photo-s);
+  border-radius: 999px;
+  overflow:hidden;
+  border: 4px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.08);
+  box-shadow: 0 18px 40px rgba(0,0,0,.45);
+}
+.nt-photo img{
+  width:100%;
+  height:100%;
+  object-fit: cover;
+}
+
+/* footer name area (optional) */
+.nt-foot{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  padding: 10px 14px;
+  background: rgba(0,0,0,.25);
+  border-top: 1px solid rgba(255,255,255,.10);
+  text-align:center;
+  font-weight: 800;
+  color: rgba(241,245,249,.9);
+  font-size: 12px;
+}
+
+/* Queue UI */
+.nt-queue{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-height: 260px;
+  overflow:auto;
+  padding-right: 6px;
+}
+.nt-qitem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.04);
+  cursor:pointer;
+}
+.nt-qitem:hover{ background: rgba(255,255,255,.06); }
+.nt-qitem b{ font-weight: 900; }
+.nt-qitem .mini{ font-size: 12px; color: rgba(241,245,249,.75); }
+
+.nt-sliders{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top: 10px;
+}
+.nt-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.nt-row span{ font-size: 12px; color: rgba(241,245,249,.75); width: 80px; }
+.nt-row input[type="range"]{ flex: 1; }
+
+/* Print A4 */
+@media print{
+  body{ background:#fff !important; color:#000 !important; }
+  .print-sheet{ page-break-after: always; }
+}
+
+/* =========================================================
+   ✅ NAME TAG (Admin) - Mobile Fix (Responsive)
+   Tempel di bawah blok Name Tag yang ada
+   ========================================================= */
+
+/* 1) Wrapper jangan bikin scroll horizontal liar */
+.nt-preview-wrap{
+  overflow-x: hidden;    /* cegah keluar blok */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 2) Card ikut lebar layar (mobile), tetap 520px di desktop */
+.nt-card{
+  width: min(520px, 100%);
+  height: auto;                 /* biar bisa scale dengan rasio */
+  aspect-ratio: 520 / 320;      /* jaga proporsi */
+}
+
+/* Kalau browser lama tidak support aspect-ratio, pakai fallback */
+@supports not (aspect-ratio: 1 / 1){
+  .nt-card{ height: 320px; }
+}
+
+/* 3) Pastikan isi card tidak memaksa meluber */
+.nt-head{ flex-wrap: wrap; }
+.nt-headtxt{ min-width: 160px; }
+.nt-event, .nt-sub{ word-break: break-word; }
+
+/* 4) Queue item & tombol delete tidak keluar blok */
+.nt-qitem{
+  flex-wrap: wrap;              /* kalau sempit, turun baris */
+  align-items: flex-start;
+}
+.nt-qitem b,
+.nt-qitem .mini{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Jika tombol delete Anda pakai class umum .btn-danger/.btn atau .del, amankan: */
+.nt-qitem button,
+.nt-qitem .btn,
+.nt-qitem .btn-danger,
+.nt-qitem .del,
+.nt-qitem .delete{
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+/* 5) Slider control: jangan memaksa melebar */
+.nt-row{
+  flex-wrap: wrap;
+  align-items: center;
+}
+.nt-row span{
+  width: auto;                  /* dulu fixed 80px → bikin meluber */
+  min-width: 92px;              /* tetap enak dibaca */
+}
+.nt-row input[type="range"]{
+  min-width: 180px;
+  width: 100%;
+  flex: 1 1 220px;              /* fleksibel di mobile */
+}
+
+/* 6) Kunci skala name tag khusus mobile agar nyaman */
+@media (max-width: 560px){
+  .nt-card{
+    border-radius: 16px;
+  }
+
+  /* skala font name & foto agar proporsional di layar kecil */
+  .nt-card{
+    --nt-name-fs: 34px;
+    --nt-photo-s: 130px;
+  }
+
+  /* atur posisi agar tidak kepotong */
+  .nt-name{
+    top: 46%;
+    left: 16px;
+    right: 16px;
+  }
+  .nt-photo{
+    top: 46%;
+  }
+
+  /* queue list lebih nyaman */
+  .nt-queue{ max-height: 220px; }
+}
