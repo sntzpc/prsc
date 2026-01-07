@@ -491,7 +491,8 @@ function validateEnablePresensi(){
 
     const needMaterial = (act.toLowerCase() === 'sesi kelas' || act.toLowerCase() === 'field day');
     if (needMaterial && !($('#material').value || '').trim()) ok = false;
-    } else {
+
+  } else {
     const reason = ($('#gate_reason').value || '').trim();
     if (!reason) ok = false;
 
@@ -500,6 +501,39 @@ function validateEnablePresensi(){
   }
 
   $('#btn-presensi').disabled = !ok;
+  return ok; // ✅ penting: supaya bisa dipakai untuk pesan status
+}
+
+function updatePresensiReadyMessage(){
+  // Catatan: fungsi ini hanya untuk status umum (bukan saat proses presensi sedang berjalan)
+
+  // 1) lokasi error (izin ditolak / timeout / dll)
+  if (State.locError){
+    UI.setResult('Belum siap melakukan presensi karena izin lokasi belum aktif. Klik "Cek Lokasi" lalu izinkan GPS.', false);
+    return false;
+  }
+
+  // 2) lokasi belum pernah terukur
+  if (!isFinite(State.loc.distance_m)){
+    UI.setResult('Belum siap melakukan presensi. Lokasi belum terdeteksi, silakan klik "Cek Lokasi".', false);
+    return false;
+  }
+
+  // 3) di luar geofence
+  if (!State.loc.inFence){
+    UI.setResult(`Belum siap melakukan presensi karena di luar area (${Math.round(State.loc.distance_m)} m).`, false);
+    return false;
+  }
+
+  // 4) lokasi OK, cek kelengkapan form/mode
+  const ok = validateEnablePresensi();
+  if (ok){
+    UI.setResult('Siap melakukan presensi.', true);
+    return true;
+  } else {
+    UI.setResult('Belum siap melakukan presensi. Lengkapi pilihan (Training Type/Activity/Materi atau Mobilitas) terlebih dahulu.', false);
+    return false;
+  }
 }
 
 /* =========================
@@ -1947,17 +1981,20 @@ async function main(){
   initCameraModals();
 
     $('#btn-checkloc').addEventListener('click', ()=> Busy.wrap(
-  $('#btn-checkloc'),
-  async()=>{
-    try{
-      await checkLocation({ force:true, silent:false });
-      UI.setResult('Lokasi berhasil diperbarui.', true);
-    } catch(e){
-      UI.setResult(e.message || String(e), false);
-    }
-  },
-  { text:'Cek Lokasi…' }
-));
+    $('#btn-checkloc'),
+    async()=>{
+      try{
+        await checkLocation({ force:true, silent:false });
+
+        // ✅ jangan hardcode "berhasil", tampilkan sesuai inFence
+        updatePresensiReadyMessage();
+
+      } catch(e){
+        UI.setResult(e.message || String(e), false);
+      }
+    },
+    { text:'Cek Lokasi…' }
+  ));
 
 $('#btn-presensi').addEventListener('click', ()=> Busy.wrap(
   $('#btn-presensi'),
@@ -1972,11 +2009,12 @@ $('#btn-presensi').addEventListener('click', ()=> Busy.wrap(
   updateLocPill(); // tampilkan status awal "Sedang cek lokasi…"
   try{
     await checkLocation({ force:false, silent:true, maxAgeMs:45000 });
-    if (State.locError){
-      UI.setResult('Aktifkan izin lokasi agar tombol Presensi bisa digunakan.', false);
-    } else {
-      UI.setResult('Lokasi terdeteksi. Silakan buka kamera lalu Presensi.', true);
-    }
+    try{
+        await checkLocation({ force:false, silent:true, maxAgeMs:45000 });
+      } catch(e){}
+
+      // ✅ satu pintu status: sesuai kondisi lokasi + kelengkapan input
+      updatePresensiReadyMessage();
   } catch(e){
     // silent:true biasanya tidak throw, tapi jaga-jaga
   }
@@ -1989,8 +2027,6 @@ $('#btn-presensi').addEventListener('click', ()=> Busy.wrap(
 
   // warm up models
   try{ await loadModels(); } catch(e){ /* will retry on demand */ }
-
-  UI.setResult('Siap melakukan presensi.', true);
 }
 
 main();

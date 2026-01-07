@@ -1115,3 +1115,47 @@ canvas#overlay, canvas#a_overlay {
   font-size: 14px;
   color: rgba(241,245,249,.95);
 }
+
+/* =========================================================
+   ✅ FIX PALING AMAN: SCROLL ADMIN MODAL DI DESKTOP
+   Jadikan #admin-modal (overlay) sebagai scroll container
+   ========================================================= */
+
+/* 1) Overlay modal admin yang scroll */
+#admin-modal{
+  overflow: auto;                 /* ✅ wheel/mouse akan scroll di sini */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+
+  align-items: flex-start;        /* ✅ supaya konten mulai dari atas */
+  justify-content: center;
+  padding: 24px;                  /* ruang tepi saat discroll */
+}
+
+/* 2) Card tidak mengunci overflow lagi (biar scroll ditangani overlay) */
+#admin-modal .modal-card{
+  max-height: none !important;    /* lepas batas yang bikin “ketahan” */
+  height: auto !important;
+  overflow: visible !important;
+
+  margin: 24px auto;              /* center + ada jarak atas/bawah */
+}
+
+/* 3) Pastikan tidak ada child yang ikut “mengunci” */
+#admin-modal #admin-pane,
+#admin-modal #admin-login-pane{
+  overflow: visible !important;
+}
+
+/* 4) Sticky tetap jalan (nempel ke atas viewport overlay) */
+#admin-modal .modal-head{
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+#admin-modal .tabs2{
+  position: sticky;
+  top: 76px;                      /* sesuaikan tinggi header desktop */
+  z-index: 29;
+}
