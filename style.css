@@ -1434,3 +1434,108 @@ canvas#overlay, canvas#a_overlay {
   /* queue list lebih nyaman */
   .nt-queue{ max-height: 220px; }
 }
+
+
+/* =========================
+   ENROLL UPLOAD WARNINGS
+   ========================= */
+.warnbox{
+  margin-top: 10px;
+  border: 1px solid rgba(0,0,0,.12);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(0,0,0,.03);
+}
+body.dark .warnbox, .dark .warnbox{
+  border-color: rgba(255,255,255,.14);
+  background: rgba(255,255,255,.05);
+}
+
+.warnbox.hidden{ display:none; }
+
+/* details */
+.warnbox details{
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.55);
+  overflow: hidden;
+}
+body.dark .warnbox details, .dark .warnbox details{
+  border-color: rgba(255,255,255,.12);
+  background: rgba(17,24,39,.35);
+}
+
+.warnbox summary{
+  cursor: pointer;
+  font-weight: 900;
+  padding: 10px 12px;
+  list-style: none; /* hilangkan marker default (Chrome) */
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.warnbox summary::-webkit-details-marker{ display:none; }
+
+.warnbox summary::before{
+  content: "⚠️";
+  display:inline-block;
+  transform: translateY(-1px);
+}
+.warnbox details[open] summary::before{
+  content: "📌";
+}
+
+.warnbox .warn-hint{
+  padding: 0 12px 10px 12px;
+  opacity: .8;
+  font-size: 12px;
+}
+
+.warnbox ol{
+  margin: 0;
+  padding: 0 12px 12px 28px;
+}
+
+.warnbox li{
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.65);
+}
+body.dark .warnbox li, .dark .warnbox li{
+  border-color: rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+}
+
+.warnbox .tag{
+  display:inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  border: 1px solid rgba(0,0,0,.12);
+  background: rgba(0,0,0,.06);
+}
+body.dark .warnbox .tag, .dark .warnbox .tag{
+  border-color: rgba(255,255,255,.14);
+  background: rgba(255,255,255,.06);
+}
+
+.warnbox .tag.danger{ background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.22); }
+.warnbox .tag.warn{ background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.24); }
+.warnbox .tag.info{ background: rgba(59,130,246,.12); border-color: rgba(59,130,246,.22); }
+
+/* Enroll suggest */
+.suggest.hidden{ display:none; }
+.sug-item{
+  padding:10px 12px;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.sug-item:hover{ background: rgba(255,255,255,.06); }
+.sug-item b{ font-weight:900; }
+.sug-mini{ opacity:.8; font-size:12px; }

@@ -9,6 +9,7 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ctext y='54' x='6' font-size='56'%3E📸%3C/text%3E%3C/svg%3E" />
 
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script src="./libs/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="app">
@@ -179,6 +180,67 @@
                     <div class="small">Kamera full-screen.</div>
                     <button id="btn-open-acam" class="btn primary" type="button">Buka Kamera</button>
                 </div>
+                </div>
+
+                <!-- ENROLL ENHANCE: Load Peserta + Auto Suggest -->
+                <div class="box mt" id="enroll-master-box">
+                  <div style="font-weight:900;margin-bottom:8px;">Master Peserta (untuk Auto-Suggest Enroll)</div>
+
+                  <div class="grid2">
+                    <div>
+                      <label>Training Type</label>
+                      <select id="e_training_type">
+                        <option value="">Pilih Training Type…</option>
+                      </select>
+                      <div class="small">Ambil dari meta peserta (server) agar pilihan konsisten.</div>
+                    </div>
+                    <div>
+                      <label>Batch / Group</label>
+                      <select id="e_group">
+                        <option value="">Pilih Batch…</option>
+                      </select>
+                      <div class="small">Filter sesuai Training Type.</div>
+                    </div>
+                  </div>
+
+                  <div class="actions mt">
+                    <button class="btn primary" id="btn-e-load" type="button">Load Peserta (Server)</button>
+                    <button class="btn" id="btn-e-clear" type="button">Clear Data Lokal</button>
+                  </div>
+
+                  <div class="small" id="e_info">Belum ada data peserta yang dimuat.</div>
+
+                  <hr style="opacity:.25;margin:14px 0;"/>
+
+                  <div style="font-weight:900;margin-bottom:8px;">Upload Master Peserta (XLSX)</div>
+                  <div class="grid2">
+                    <div>
+                      <label>Upload file master_peserta.xlsx</label>
+                      <input id="e_file" type="file" accept=".xlsx"/>
+                      <div class="small">Kolom wajib sesuai template: <b>nik,nama,jenis_pelatihan,tahun,lokasi_ojt,unit,region,group</b></div>
+                    </div>
+                    <div>
+                      <label>Template</label>
+                      <button class="btn" id="btn-e-template" type="button">Download Template</button>
+                      <div class="small">Pastikan file template ada di <b>./template/master_peserta.xlsx</b></div>
+                    </div>
+                  </div>
+
+                  <div class="actions mt">
+                    <button class="btn primary" id="btn-e-upload" type="button">Upload ke Server</button>
+                  </div>
+
+                  <div class="small" id="e_upload_info">-</div>
+                  <div id="e_upload_warnings" class="warnbox hidden"></div>
+                </div>
+
+                <!-- Auto-suggest dropdown (letakkan tepat setelah input #a_nik agar tampil rapi) -->
+                <div id="enroll-suggest" class="suggest hidden" style="position:relative;">
+                  <div id="enroll-suggest-list"
+                      style="position:absolute;z-index:50;left:0;right:0;top:6px;
+                              background:var(--card,#111827);border:1px solid rgba(255,255,255,.12);
+                              border-radius:12px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.35);">
+                  </div>
                 </div>
               
             </div>
