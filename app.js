@@ -94,19 +94,33 @@ function camOutcomeEnsureUI(){
           background: rgba(0,0,0,.45);
           backdrop-filter: blur(2px);
           pointer-events: auto;
+
+          /* ✅ safe-area padding (iOS notch) */
+          padding-top: env(safe-area-inset-top);
+          padding-bottom: env(safe-area-inset-bottom);
+          padding-left: env(safe-area-inset-left);
+          padding-right: env(safe-area-inset-right);
         }
         .cam-outcome.on{ display:flex; }
+
         .cam-outcome .box{
-          width: min(520px, 86vw);
+          width: min(520px, 92vw);
           border-radius: 22px;
           padding: 18px 18px 16px;
           text-align: center;
           color: #fff;
           box-shadow: 0 24px 80px rgba(0,0,0,.55);
           border: 1px solid rgba(255,255,255,.14);
+
+          /* ✅ agar tidak kepotong di layar kecil / landscape */
+          max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
         }
+
+        /* ✅ ukuran adaptif (mobile -> desktop) */
         .cam-outcome .icon{
-          font-size: 120px;
+          font-size: clamp(78px, 18vw, 120px);
           line-height: 1;
           margin: 10px 0 10px;
           filter: drop-shadow(0 12px 28px rgba(0,0,0,.55));
@@ -114,23 +128,44 @@ function camOutcomeEnsureUI(){
         .cam-outcome .title{
           font-weight: 1000;
           letter-spacing: .08em;
-          font-size: 34px;
+          font-size: clamp(22px, 6.5vw, 34px);
           margin: 0 0 8px;
         }
         .cam-outcome .desc{
-          font-size: 14px;
+          font-size: clamp(13px, 3.5vw, 14px);
           opacity: .92;
           line-height: 1.35;
         }
+
         .cam-outcome.ok .box{
-          background: radial-gradient(circle at 30% 20%, rgba(34,197,94,.35), transparent 45%),
-                      radial-gradient(circle at 70% 15%, rgba(16,185,129,.25), transparent 40%),
-                      rgba(6,95,70,.78);
+          background:
+            radial-gradient(circle at 30% 20%, rgba(34,197,94,.35), transparent 45%),
+            radial-gradient(circle at 70% 15%, rgba(16,185,129,.25), transparent 40%),
+            rgba(6,95,70,.78);
         }
         .cam-outcome.fail .box{
-          background: radial-gradient(circle at 30% 20%, rgba(239,68,68,.38), transparent 45%),
-                      radial-gradient(circle at 70% 15%, rgba(244,63,94,.25), transparent 40%),
-                      rgba(127,29,29,.78);
+          background:
+            radial-gradient(circle at 30% 20%, rgba(239,68,68,.38), transparent 45%),
+            radial-gradient(circle at 70% 15%, rgba(244,63,94,.25), transparent 40%),
+            rgba(127,29,29,.78);
+        }
+
+        /* ✅ ekstra kecil: rapikan padding */
+        @media (max-width: 420px){
+          .cam-outcome .box{
+            width: min(520px, 94vw);
+            padding: 14px 14px 12px;
+            border-radius: 18px;
+          }
+          .cam-outcome .title{
+            letter-spacing: .06em;
+          }
+        }
+
+        /* ✅ landscape pendek: kecilkan margin supaya muat */
+        @media (orientation: landscape) and (max-height: 420px){
+          .cam-outcome .icon{ margin: 6px 0 6px; }
+          .cam-outcome .title{ margin-bottom: 6px; }
         }
       `;
       document.head.appendChild(st);
