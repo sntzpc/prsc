@@ -62,23 +62,13 @@
             <div>
               <label>Jenis Pelatihan</label>
               <select id="training_type">
-                <option value="">Pilih…</option>
-                <option>KLP1 AGRO</option>
-                <option>KLP1 MILL</option>
-                <option>KLP1 ADMN</option>
-                <option>2nd Stream</option>
-                <option>Uji Kompetensi</option>
+                <option value="">Memuat…</option>
               </select>
             </div>
             <div>
               <label>Kegiatan</label>
               <select id="activity">
-                <option value="">Pilih…</option>
-                <option>Sesi Kelas</option>
-                <option>Field Day</option>
-                <option>Uji Kompetensi</option>
-                <option>Olahraga</option>
-                <option>Makan</option>
+                <option value="">Memuat…</option>
               </select>
             </div>
           </div>
@@ -93,7 +83,7 @@
         <div id="gate-fields" class="box hidden">
           <div class="grid2">
             <div>
-              <label>Alasan</label>
+              <label>Keperluan</label>
               <input id="gate_reason" type="text" placeholder="Ibadah / Berobat / Field Day / lainnya…"/>
               <div class="hint">Cepat: <span class="chip" data-reason="Ibadah">Ibadah</span> <span class="chip" data-reason="OJT">OJT</span> <span class="chip" data-reason="Kerja">Kerja</span></div>
             </div>
@@ -148,6 +138,7 @@
                 <button class="tab2" data-atab="rekap">Rekap</button>
                 <button class="tab2" data-atab="logs">Logs</button>
                 <button class="tab2" data-atab="settings">Settings</button>
+                <button class="tab2" data-atab="training">Training</button>
                 <button class="tab2" data-atab="materi">Materi</button>
                 <button class="tab2" data-atab="nametag">Card</button>
             </div>
@@ -556,7 +547,7 @@
                 </div>
                 </div>
 
-                <!-- =========================
+                    <!-- =========================
                     NAME TAG SETTINGS (PRINT + SLIDER BOUNDS)
                     Letakkan di tab Settings Admin
                     ========================= -->
@@ -692,6 +683,76 @@
                 <div class="small" id="pin-info">-</div>
             </div>
             </div>
+
+            <!-- TRAINING MASTER (CRUD) -->
+                  <div class="apane" id="apane-training">
+                    <div class="box">
+                      <div style="font-weight:900;margin-bottom:8px;">Master Training (Jenis Pelatihan & Kegiatan)</div>
+
+                      <input id="tm_id" type="hidden"/>
+
+                      <div class="grid2">
+                        <div>
+                          <label>Tipe</label>
+                          <select id="tm_kind">
+                            <option value="training_type">Jenis Pelatihan</option>
+                            <option value="activity">Kegiatan</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label>Status</label>
+                          <select id="tm_active">
+                            <option value="TRUE">Aktif</option>
+                            <option value="FALSE">Nonaktif</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="grid2">
+                        <div>
+                          <label>Nama</label>
+                          <input id="tm_name" type="text" placeholder="Mis: KLP1 AGRO / Sesi Kelas"/>
+                        </div>
+                        <div>
+                          <label>Urutan (sort)</label>
+                          <input id="tm_sort" type="number" min="0" step="1" placeholder="0"/>
+                          <div class="small">Angka kecil tampil duluan.</div>
+                        </div>
+                      </div>
+
+                      <div class="actions mt">
+                        <button class="btn primary" id="btn-tm-save" type="button">Simpan</button>
+                        <button class="btn" id="btn-tm-reset" type="button">Reset</button>
+                        <button class="btn" id="btn-tm-refresh" type="button">Refresh</button>
+                      </div>
+
+                      <div class="small" id="tm_info">-</div>
+                    </div>
+
+                    <div class="box mt">
+                      <div style="font-weight:900;margin-bottom:8px;">Jenis Pelatihan</div>
+                      <div class="tablewrap">
+                        <table class="tbl" id="tm_tbl_type">
+                          <thead>
+                            <tr><th>Nama</th><th>Sort</th><th>Aktif</th><th>Aksi</th></tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div class="box mt">
+                      <div style="font-weight:900;margin-bottom:8px;">Kegiatan</div>
+                      <div class="tablewrap">
+                        <table class="tbl" id="tm_tbl_act">
+                          <thead>
+                            <tr><th>Nama</th><th>Sort</th><th>Aktif</th><th>Aksi</th></tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
 
             <!-- MATERI (CRUD) -->
             <div class="apane" id="apane-materi">

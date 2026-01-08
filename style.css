@@ -1539,3 +1539,95 @@ body.dark .warnbox .tag, .dark .warnbox .tag{
 .sug-item:hover{ background: rgba(255,255,255,.06); }
 .sug-item b{ font-weight:900; }
 .sug-mini{ opacity:.8; font-size:12px; }
+
+/* =========================================================
+   ✅ FIX MOBILE OVERFLOW (Enroll Master: file input + template)
+   - mencegah elemen "keluar blok" pada layar kecil
+   ========================================================= */
+
+/* 1) Pastikan box tidak "meluber" */
+#enroll-master-box,
+#enroll-master-box *{
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* 2) File input full-width + rapih */
+#enroll-master-box input[type="file"]{
+  width: 100%;
+  display: block;
+}
+
+/* Style tombol file picker (Chrome/Edge/Safari modern) */
+#enroll-master-box input[type="file"]::file-selector-button{
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.08);
+  color: inherit;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+/* Safari lama */
+#enroll-master-box input[type="file"]::-webkit-file-upload-button{
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.08);
+  color: inherit;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+/* 3) Teks panjang (path / daftar kolom) wajib bisa wrap */
+#enroll-master-box .small,
+#enroll-master-box label,
+#enroll-master-box b{
+  overflow-wrap: anywhere;   /* paling efektif untuk path panjang */
+  word-break: break-word;
+}
+
+/* 4) Tombol di area actions supaya tidak melebar ke samping */
+#enroll-master-box .actions{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+#enroll-master-box .actions .btn{
+  flex: 1 1 220px; /* otomatis turun baris di mobile */
+  min-width: 0;
+}
+
+/* 5) Grid2 di enroll-master: paksa jadi 1 kolom di mobile */
+@media (max-width: 520px){
+  #enroll-master-box .grid2{
+    grid-template-columns: 1fr !important;
+  }
+  #enroll-master-box .actions .btn{
+    width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+/* =========================
+   TRAINING MASTER (Admin CRUD)
+   ========================= */
+#apane-training .tbl .btn{
+  padding: 8px 12px;
+  min-width: 90px;
+  flex: 0 0 auto;
+}
+
+#apane-training .tbl td:last-child{
+  white-space: nowrap;
+}
+
+@media (max-width: 520px){
+  #apane-training .tbl th,
+  #apane-training .tbl td{
+    padding: 12px;
+  }
+}

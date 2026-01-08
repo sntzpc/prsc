@@ -1,5 +1,28 @@
 const $ = (s, r=document) => r.querySelector(s);
 
+const State = {
+  cfg: null,
+  loc: { lat:null, lng:null, accuracy_m:null, distance_m:null, inFence:false },
+  locCheckedAt: 0,
+  locError: '',
+  lastTrainingType: localStorage.getItem('lastTrainingType') || '',
+  lastActivity: localStorage.getItem('lastActivity') || '',
+  gateDirection: null,
+  modelsReady: false,
+  deviceId: null,
+  ui: {
+    pcamOpen: false
+  },
+
+  adminToken: localStorage.getItem('admin_token') || '',
+  adminExp: Number(localStorage.getItem('admin_exp') || 0),
+  cam: {
+    pesertaFacing: localStorage.getItem('cam_peserta') || 'user',   // 'user' | 'environment'
+    adminFacing:   localStorage.getItem('cam_admin')   || 'user',
+    streams: { peserta:null, admin:null }
+  }
+};
+
 const UI = {
     _resultEl(){
     const inCam = !!State?.ui?.pcamOpen;
@@ -39,28 +62,151 @@ const UI = {
   }
 };
 
-const State = {
-  cfg: null,
-  loc: { lat:null, lng:null, accuracy_m:null, distance_m:null, inFence:false },
-  locCheckedAt: 0,
-  locError: '',
-  lastTrainingType: localStorage.getItem('lastTrainingType') || '',
-  lastActivity: localStorage.getItem('lastActivity') || '',
-  gateDirection: null,
-  modelsReady: false,
-  deviceId: null,
-  ui: {
-    pcamOpen: false
-  },
+/* =========================================================
+   ✅ CAMERA RESULT OVERLAY (BIG ✅/❌) + HOLD/LOCK STATUS
+   - tampil di modal kamera peserta
+   - BERHASIL: auto-close modal setelah jeda
+   - GAGAL: tampil beberapa detik, lalu hilang (tetap di modal)
+   ========================================================= */
 
-  adminToken: localStorage.getItem('admin_token') || '',
-  adminExp: Number(localStorage.getItem('admin_exp') || 0),
-  cam: {
-    pesertaFacing: localStorage.getItem('cam_peserta') || 'user',   // 'user' | 'environment'
-    adminFacing:   localStorage.getItem('cam_admin')   || 'user',
-    streams: { peserta:null, admin:null }
+State.ui = State.ui || {};
+State.ui.outcomeLock = false;
+State.ui.outcomeTimer = null;
+State.ui.lastPresensiFailed = false;
+State.ui.lastFailMessage = '';
+
+function camOutcomeEnsureUI(){
+  // ✅ overlay dibuat sebagai "portal" ke body agar tidak kalah z-index / stacking context video
+  let ov = document.getElementById('cam-outcome');
+  if (!ov){
+    // inject style sekali
+    if (!document.getElementById('cam-outcome-style')){
+      const st = document.createElement('style');
+      st.id = 'cam-outcome-style';
+      st.textContent = `
+        .cam-outcome{
+          position: fixed;
+          inset: 0;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          z-index: 2147483647; /* super top */
+          background: rgba(0,0,0,.45);
+          backdrop-filter: blur(2px);
+          pointer-events: auto;
+        }
+        .cam-outcome.on{ display:flex; }
+        .cam-outcome .box{
+          width: min(520px, 86vw);
+          border-radius: 22px;
+          padding: 18px 18px 16px;
+          text-align: center;
+          color: #fff;
+          box-shadow: 0 24px 80px rgba(0,0,0,.55);
+          border: 1px solid rgba(255,255,255,.14);
+        }
+        .cam-outcome .icon{
+          font-size: 120px;
+          line-height: 1;
+          margin: 10px 0 10px;
+          filter: drop-shadow(0 12px 28px rgba(0,0,0,.55));
+        }
+        .cam-outcome .title{
+          font-weight: 1000;
+          letter-spacing: .08em;
+          font-size: 34px;
+          margin: 0 0 8px;
+        }
+        .cam-outcome .desc{
+          font-size: 14px;
+          opacity: .92;
+          line-height: 1.35;
+        }
+        .cam-outcome.ok .box{
+          background: radial-gradient(circle at 30% 20%, rgba(34,197,94,.35), transparent 45%),
+                      radial-gradient(circle at 70% 15%, rgba(16,185,129,.25), transparent 40%),
+                      rgba(6,95,70,.78);
+        }
+        .cam-outcome.fail .box{
+          background: radial-gradient(circle at 30% 20%, rgba(239,68,68,.38), transparent 45%),
+                      radial-gradient(circle at 70% 15%, rgba(244,63,94,.25), transparent 40%),
+                      rgba(127,29,29,.78);
+        }
+      `;
+      document.head.appendChild(st);
+    }
+
+    ov = document.createElement('div');
+    ov.id = 'cam-outcome';
+    ov.className = 'cam-outcome';
+    ov.innerHTML = `
+      <div class="box" role="status" aria-live="polite">
+        <div class="icon" id="cam-outcome-icon">✅</div>
+        <div class="title" id="cam-outcome-title">BERHASIL</div>
+        <div class="desc"  id="cam-outcome-desc"></div>
+      </div>
+    `;
+    document.body.appendChild(ov);
+
+    // klik overlay untuk menutup overlay (opsional)
+    ov.addEventListener('click', ()=>{
+      camOutcomeHide();
+    });
   }
-};
+
+  return ov;
+}
+
+function camOutcomeShow(ok, descHtml, opts = {}){
+  const ov = camOutcomeEnsureUI();
+  if (!ov) return;
+
+  // kunci smart status & hasil
+  State.ui.outcomeLock = true;
+  statusSetLock(true); // ✅ cegah smartStatus menimpa hasil
+
+  // cancel timer lama
+  if (State.ui.outcomeTimer) clearTimeout(State.ui.outcomeTimer);
+  State.ui.outcomeTimer = null;
+
+  ov.classList.remove('ok','fail');
+  ov.classList.add(ok ? 'ok' : 'fail');
+  ov.classList.add('on');
+
+  const icon = document.getElementById('cam-outcome-icon');
+  const title= document.getElementById('cam-outcome-title');
+  const desc = document.getElementById('cam-outcome-desc');
+
+  if (icon)  icon.textContent  = ok ? '✅' : '❌';
+  if (title) title.textContent = ok ? 'BERHASIL' : 'GAGAL';
+  if (desc)  desc.innerHTML    = String(descHtml || '');
+
+  // auto behavior
+  const closeOnOk = (opts.closeOnOk !== false);   // default true
+  const delayOkMs = Number(opts.delayOkMs ?? 1600);
+  const delayFailMs = Number(opts.delayFailMs ?? 2200);
+
+  State.ui.outcomeTimer = setTimeout(()=>{
+    if (ok && closeOnOk){
+      // auto close modal
+      try{ closePesertaCameraModal(); }catch(e){}
+    }
+    camOutcomeHide(); // kalau ok: setelah close, overlay hilang; kalau fail: hilang saja
+  }, ok ? delayOkMs : delayFailMs);
+}
+
+function camOutcomeHide(){
+  const ov = document.getElementById('cam-outcome');
+  if (ov) ov.classList.remove('on');
+
+  if (State.ui.outcomeTimer) clearTimeout(State.ui.outcomeTimer);
+  State.ui.outcomeTimer = null;
+
+  // buka lock kembali (biar smart status bisa update lagi)
+  State.ui.outcomeLock = false;
+  statusSetLock(false);
+}
+
 
 // ✅ Ganti dengan URL Deploy Web App Anda (exec)
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbyB8tvXIAiAt6adyy3VoR8EE2YFwmBig5tuNPOKREP4HqVGKn_swzbR_vIY8wv-fD5X/exec';
@@ -516,45 +662,159 @@ function validateEnablePresensi(){
   } else {
     const reason = ($('#gate_reason').value || '').trim();
     if (!reason) ok = false;
-
-    // ✅ Mobilitas wajib pilih arah (Masuk/Keluar) dulu
-    if (!State.gateDirection) ok = false;
   }
 
   $('#btn-presensi').disabled = !ok;
   return ok; // ✅ penting: supaya bisa dipakai untuk pesan status
 }
 
-function updatePresensiReadyMessage(){
-  // Catatan: fungsi ini hanya untuk status umum (bukan saat proses presensi sedang berjalan)
+/* =========================================================
+   ✅ SMART STATUS ENGINE (lebih responsif)
+   - Auto update status saat user ubah pilihan
+   - Tidak menimpa pesan "proses" (scan/liveness/presensi)
+   ========================================================= */
 
-  // 1) lokasi error (izin ditolak / timeout / dll)
+// status lock: kalau sedang proses presensi/liveness, jangan override pesan
+State.ui = State.ui || {};
+State.ui.statusLock = false;
+State.ui.lastCtxKey = '';
+State.ui.lastStatusKey = '';
+
+function statusSetLock(on){
+  State.ui.statusLock = !!on;
+}
+
+function setPresensiFail(msg){
+  State.ui.lastPresensiFailed = true;
+  State.ui.lastFailMessage = String(msg || 'Presensi gagal.');
+}
+
+function clearPresensiFail(){
+  State.ui.lastPresensiFailed = false;
+  State.ui.lastFailMessage = '';
+}
+
+// Ambil konteks form saat ini untuk deteksi perubahan (mode, pilihan, arah)
+function getCtxKey_(){
+  const mode = ($('#mode')?.value || 'training');
+  const tt   = ($('#training_type')?.value || '').trim();
+  const act  = ($('#activity')?.value || '').trim();
+  const mat  = ($('#material')?.value || '').trim();
+  const reason = ($('#gate_reason')?.value || '').trim();
+  const dir  = (State.gateDirection || '');
+  // lokasi kita jadikan bagian key supaya ketika inFence berubah, status ikut update
+  const locKey = (State.locError ? 'LOCERR' : (isFinite(State.loc.distance_m) ? (State.loc.inFence ? 'INFENCE' : 'OUTFENCE') : 'LOADING'));
+  return [mode, tt, act, mat, reason, dir, locKey].join('|');
+}
+
+function needMaterial_(activity){
+  const a = String(activity||'').trim().toLowerCase();
+  return (a === 'sesi kelas' || a === 'field day');
+}
+
+// Hitung readiness + pesan “apa yang kurang” (lebih detail)
+function computeReadiness_(){
+  // 1) lokasi
   if (State.locError){
-    UI.setResult('Belum siap melakukan presensi karena izin lokasi belum aktif. Klik "Cek Lokasi" lalu izinkan GPS.', false);
-    return false;
+    return { ok:false, key:'LOC_ERR', msg:'Izin lokasi belum aktif. Klik <b>Cek Lokasi</b> lalu izinkan GPS.' };
   }
-
-  // 2) lokasi belum pernah terukur
   if (!isFinite(State.loc.distance_m)){
-    UI.setResult('Belum siap melakukan presensi. Lokasi belum terdeteksi, silakan klik "Cek Lokasi".', false);
-    return false;
+    return { ok:false, key:'LOC_WAIT', msg:'Lokasi belum terdeteksi. Klik <b>Cek Lokasi</b>.' };
   }
-
-  // 3) di luar geofence
   if (!State.loc.inFence){
-    UI.setResult(`Belum siap melakukan presensi karena di luar area (${Math.round(State.loc.distance_m)} m).`, false);
-    return false;
+    return { ok:false, key:'LOC_OUT', msg:`Di luar area presensi (${Math.round(State.loc.distance_m)} m). Dekati area Training Center.` };
   }
 
-  // 4) lokasi OK, cek kelengkapan form/mode
-  const ok = validateEnablePresensi();
-  if (ok){
-    UI.setResult('Siap melakukan presensi.', true);
-    return true;
-  } else {
-    UI.setResult('Belum siap melakukan presensi. Lengkapi pilihan (Training Type/Activity/Materi atau Mobilitas) terlebih dahulu.', false);
-    return false;
+  // 2) mode
+  const mode = ($('#mode')?.value || 'training');
+
+  if (mode === 'training'){
+    const tt  = ($('#training_type')?.value || '').trim();
+    const act = ($('#activity')?.value || '').trim();
+    const mat = ($('#material')?.value || '').trim();
+
+    const missing = [];
+    if (!tt) missing.push('Training Type');
+    if (!act) missing.push('Activity');
+
+    if (act && needMaterial_(act) && !mat) missing.push('Materi');
+
+    if (missing.length){
+      // pesan lebih spesifik
+      return {
+        ok:false,
+        key:'TR_MISS_' + missing.join('_'),
+        msg:`Belum siap presensi. Lengkapi: <b>${missing.join(', ')}</b>.`
+      };
+    }
+
+    return {
+      ok:true,
+      key:'TR_OK',
+      msg:`Siap presensi Training: <b>${escapeHtml(tt)}</b> / <b>${escapeHtml(act)}</b>${mat?(' • Materi: <b>'+escapeHtml(mat)+'</b>'):''}.`
+    };
   }
+
+    // gate / mobilitas 
+  const reason = ($('#gate_reason')?.value || '').trim();
+  const dir = State.gateDirection || '';
+
+  // 1) Belum isi keperluan
+  if (!reason){
+    return {
+      ok:false,
+      key:'GT_NO_REASON',
+      msg:'Belum siap presensi Mobilitas. Pilih / isi <b>Keperluan</b> terlebih dahulu.'
+    };
+  }
+
+  // 2) Keperluan sudah ada -> status BERHASIL (siap)
+  //    Arah akan otomatis di-set saat klik tombol Masuk/Keluar.
+  const hint = dir
+    ? `Arah: <b>${dir === 'IN' ? 'MASUK' : 'KELUAR'}</b>.`
+    : `Klik tombol <b>Masuk</b> atau <b>Keluar</b> untuk mulai presensi.`;
+
+  return {
+    ok:true,
+    key:'GT_OK',
+    msg:`Siap presensi Mobilitas. Keperluan: <b>${escapeHtml(reason)}</b>.<br/>${hint}`
+  };
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+// Update status jika ada perubahan konteks / atau dipaksa
+function smartStatusUpdate(force=false){
+  if (State.ui.lastPresensiFailed){
+  UI.setResult(State.ui.lastFailMessage, false);
+  return;
+}
+  if (State.ui.statusLock) return;
+  if (State.ui.outcomeLock) return;
+
+  const ctxKey = getCtxKey_();
+  if (!force && ctxKey === State.ui.lastCtxKey) return;
+
+  State.ui.lastCtxKey = ctxKey;
+
+  validateEnablePresensi();
+
+  const st = computeReadiness_();
+  const statusKey = st.key + '|' + (st.ok ? '1':'0');
+
+  if (!force && statusKey === State.ui.lastStatusKey) return;
+  State.ui.lastStatusKey = statusKey;
+
+  // gunakan setResult supaya ikon ✅/❌ jelas
+  UI.setResult(st.msg, !!st.ok);
+}
+
+function updatePresensiReadyMessage(){
+  // delegasi ke smart engine
+  smartStatusUpdate(true);
+  return validateEnablePresensi();
 }
 
 /* =========================
@@ -583,13 +843,18 @@ function updateScanBadge(){
   }
 
   // gate / mobilitas
-  if (!State.gateDirection){
-    setScanBadge('MOBILITAS: PILIH ARAH', 'warn');
+  const reason = ($('#gate_reason')?.value || '').trim();
+  if (!reason){
+    setScanBadge('MOBILITAS: ISI KEPERLUAN', 'warn');
     return;
   }
 
-  const dir = (State.gateDirection === 'IN') ? 'MASUK' : 'KELUAR';
-  setScanBadge(`MOBILITAS: ${dir}`, State.gateDirection === 'IN' ? 'ok' : 'danger');
+  // keperluan sudah ada -> badge OK, arah opsional tampil kalau sudah dipilih
+  const dir = State.gateDirection
+    ? (State.gateDirection === 'IN' ? 'MASUK' : 'KELUAR')
+    : 'SIAP';
+
+  setScanBadge(`MOBILITAS: ${dir}`, 'ok');
 }
 
 /* =========================
@@ -598,9 +863,6 @@ function updateScanBadge(){
 function debounce(fn, ms){
   let t=null;
   return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
-}
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
 
 function formatImportWarningsDetails(warnings, summaryText){
@@ -867,6 +1129,19 @@ async function capturePhotoDataURL(videoEl){
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
+function presensiFailCam(htmlMsg){
+  setPresensiFail(String(htmlMsg || 'Presensi gagal.'));
+  UI.setResult(State.ui.lastFailMessage, false);
+
+  // tampilkan overlay besar kalau kamera peserta sedang terbuka
+  if (State?.ui?.pcamOpen){
+    camOutcomeShow(false,
+      `${State.ui.lastFailMessage}<br/><span class="small">Silakan coba lagi.</span>`,
+      { delayFailMs: 2400 }
+    );
+  }
+}
+
 /* =========================
    PRESENSI FLOW (peserta)
    1) checkLocation
@@ -877,14 +1152,17 @@ function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 async function doPresensi(){
   return runExclusive('presensi', async()=>{
     try{
-        // ✅ jika izin lokasi belum ada / error, minta user keluar fullscreen dulu
-        if (State.locError && document.fullscreenElement){
-        UI.setResult('Izin lokasi belum aktif. Tutup fullscreen lalu klik "Cek Lokasi" terlebih dahulu.', false);
+      statusSetLock(true);
+
+      // ✅ jika izin lokasi belum ada / error, minta user keluar fullscreen dulu
+      if (State.locError && document.fullscreenElement){
+        presensiFailCam('Izin lokasi belum aktif. Tutup fullscreen lalu klik "Cek Lokasi" terlebih dahulu.');
         return;
-        }
+      }
+
       await checkLocation({ force:false, silent:false, maxAgeMs:45000 });
       if (!State.loc.inFence){
-        UI.setResult('Anda di luar area geo-fence. Dekati area Training Center.', false);
+        presensiFailCam('Anda di luar area geo-fence. Dekati area Training Center.');
         return;
       }
 
@@ -905,7 +1183,7 @@ async function doPresensi(){
         payload.gate_reason = $('#gate_reason').value || '';
         payload.gate_direction = State.gateDirection || '';
         if (!payload.gate_direction){
-          UI.setResult('Silakan gunakan tombol Masuk atau Keluar.', false);
+          presensiFailCam('Silakan gunakan tombol Masuk atau Keluar.');
           return;
         }
       }
@@ -913,8 +1191,7 @@ async function doPresensi(){
       // liveness
       const live = await runLiveness($('#video'));
       if (!live.ok){
-        UI.setResult('Liveness gagal. Coba lagi (cahaya cukup, wajah penuh di kamera).', false);
-        payload.liveness = live;
+        presensiFailCam('Liveness gagal. Coba lagi (cahaya cukup, wajah penuh di kamera).');
         return;
       }
       payload.liveness = live;
@@ -923,39 +1200,52 @@ async function doPresensi(){
 
       const descAvg = await captureMultiShotAvg($('#video'), 3, 2500);
       if (!descAvg){
-        UI.setResult('Wajah tidak stabil terdeteksi. Coba lagi.', false);
+        presensiFailCam('Wajah tidak stabil terdeteksi. Coba lagi.');
         return;
       }
       payload.descriptor_avg = descAvg;
 
       const r = await api('verifyAndLog', payload);
 
-        if (r.ok){
+      if (r.ok){
+        clearPresensiFail();
+
         UI.setResult(
-            `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
-            Jarak center: ${Math.round(r.distance_m)} m<br/>
-            Deteksi Device: <b>${r.device_detect_enabled ? 'ON' : 'OFF'}</b> • Status: <b>${escapeHtml(r.status || '')}</b><br/>
-            ${r.device_bound ? '✅ Device berhasil diikat (binding) pertama kali.' : ''}`,
-            true
+          `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
+          Jarak center: ${Math.round(r.distance_m)} m<br/>
+          Status: <b>${escapeHtml(r.status || '')}</b>`,
+          true
         );
-        } else {
-        // ✅ Khusus duplicate attempt
+
+        camOutcomeShow(true,
+          `Presensi diterima<br/><b>${escapeHtml(r.nama)}</b><br/><span class="small">Modal akan menutup otomatis…</span>`,
+          { delayOkMs: 1600, closeOnOk: true }
+        );
+
+      } else {
         if (String(r.status || '').toUpperCase() === 'DUPLICATE_ATTEMPT'){
-            UI.setResult(
-            `Presensi duplikat terdeteksi.<br/>
-            Jika barusan sudah presensi, tidak perlu ulang. (Anti-Duplicate Aktif)`,
-            false
-            );
-            return;
+          presensiFailCam('Presensi duplikat terdeteksi.<br/>Jika barusan sudah presensi, tidak perlu ulang. (Anti-Duplicate Aktif)');
+          return;
         }
 
-        UI.setResult(`${escapeHtml(r.error || 'Gagal')}<br/>Status: ${escapeHtml(r.status || '-')}`, false);
-        }
+        // ✅ semua error server -> overlay fail juga
+        presensiFailCam(`${escapeHtml(r.error || 'Gagal')}<br/>Status: ${escapeHtml(r.status || '-')}`);
+        return;
+      }
+
     } catch(err){
-      UI.setResult(String(err?.message || err), false);
+      presensiFailCam(String(err?.message || err));
     } finally {
+      if (!State.ui.outcomeLock){
+        statusSetLock(false);
+      }
+
       State.gateDirection = null;
       updateScanBadge();
+
+      if (!State.ui.outcomeLock){
+        smartStatusUpdate(true);
+      }
     }
   });
 }
@@ -1341,7 +1631,7 @@ function enrollBindAutoSuggest(){
   window.addEventListener('resize', reposition);
 }
 
-
+/*
 // ✅ override: show harus selalu reposition
 const _enrollSuggestShowOrig = enrollSuggestShow;
 enrollSuggestShow = function(items){
@@ -1392,6 +1682,8 @@ enrollSuggestShow = function(items){
     });
   });
 };
+
+*/
 
 /* -------------------------
    Load master dari server (filter TT + Group)
@@ -2005,6 +2297,184 @@ async function adminChangePin(){
     $('#pin-info').textContent = '❌ ' + m;
     UI.setAdminResult(m, false);
   }
+}
+
+/* =========================================================
+   ✅ TRAINING META (Jenis Pelatihan & Kegiatan) - Public + Cache
+   ========================================================= */
+const TRAIN_META = {
+  LS_KEY: 'training_meta_local_v1',
+  data: { training_types: [], activities: [], savedAt: 0 }
+};
+
+function tmLoadFromLS(){
+  try{
+    const raw = localStorage.getItem(TRAIN_META.LS_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    if (!obj) return;
+    TRAIN_META.data = {
+      training_types: Array.isArray(obj.training_types) ? obj.training_types : [],
+      activities: Array.isArray(obj.activities) ? obj.activities : [],
+      savedAt: Number(obj.savedAt || 0)
+    };
+  }catch(e){}
+}
+
+function tmSaveToLS(){
+  try{
+    localStorage.setItem(TRAIN_META.LS_KEY, JSON.stringify(TRAIN_META.data));
+  }catch(e){}
+}
+
+function tmApplyToPesertaUI(){
+  const ttEl = document.getElementById('training_type');
+  const acEl = document.getElementById('activity');
+  if (!ttEl || !acEl) return;
+
+  const curTT = ttEl.value || State.lastTrainingType || '';
+  const curAC = acEl.value || State.lastActivity || '';
+
+  const tts = (TRAIN_META.data.training_types || []).slice();
+  const acts = (TRAIN_META.data.activities || []).slice();
+
+  fillSelect(ttEl, tts, 'Pilih…');
+  fillSelect(acEl, acts, 'Pilih…');
+
+  if (curTT && tts.includes(curTT)) ttEl.value = curTT;
+  if (curAC && acts.includes(curAC)) acEl.value = curAC;
+
+  // re-run rule materi
+  try{ toggleMaterial(); }catch(e){}
+  try{ updateScanBadge(); }catch(e){}
+  try{ validateEnablePresensi(); }catch(e){}
+}
+
+async function tmLoadFromServer(force=false){
+  // cache 24 jam (silakan ubah)
+  const maxAgeMs = 24 * 60 * 60 * 1000;
+  const age = Date.now() - Number(TRAIN_META.data.savedAt || 0);
+
+  if (!force && TRAIN_META.data.training_types.length && age < maxAgeMs){
+    tmApplyToPesertaUI();
+    return;
+  }
+
+  const r = await api('trainingMetaPublic', { t: Date.now() });
+  if (!r.ok) throw new Error(r.error || 'Gagal load training meta');
+
+  TRAIN_META.data.training_types = Array.isArray(r.training_types) ? r.training_types : [];
+  TRAIN_META.data.activities = Array.isArray(r.activities) ? r.activities : [];
+  TRAIN_META.data.savedAt = Date.now();
+
+  tmSaveToLS();
+  tmApplyToPesertaUI();
+}
+
+/* =========================================================
+   ✅ ADMIN: TRAINING META CRUD
+   ========================================================= */
+
+function tmResetForm(){
+  $('#tm_id').value = '';
+  $('#tm_kind').value = 'training_type';
+  $('#tm_name').value = '';
+  $('#tm_active').value = 'TRUE';
+  $('#tm_sort').value = '0';
+}
+
+function tmRowBtnHtml(id){
+  return `
+    <button class="btn" data-tm-edit="${escapeHtml(id)}" type="button">Edit</button>
+    <button class="btn danger" data-tm-del="${escapeHtml(id)}" type="button">Hapus</button>
+  `;
+}
+
+function tmRenderTables(items){
+  const tbType = document.querySelector('#tm_tbl_type tbody');
+  const tbAct  = document.querySelector('#tm_tbl_act tbody');
+  if (!tbType || !tbAct) return;
+
+  const byKind = (k)=> (items||[]).filter(x=>String(x.kind)===k);
+
+  const render = (arr)=> arr.map(x=>`
+    <tr>
+      <td>${escapeHtml(x.name)}</td>
+      <td>${escapeHtml(String(x.sort ?? 0))}</td>
+      <td>${x.active ? 'TRUE' : 'FALSE'}</td>
+      <td>${tmRowBtnHtml(x.id)}</td>
+    </tr>
+  `).join('');
+
+  tbType.innerHTML = render(byKind('training_type'));
+  tbAct.innerHTML  = render(byKind('activity'));
+
+  // bind edit/delete
+  document.querySelectorAll('[data-tm-edit]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const id = b.getAttribute('data-tm-edit');
+      const it = (items||[]).find(z=>String(z.id)===String(id));
+      if (!it) return;
+      $('#tm_id').value = it.id;
+      $('#tm_kind').value = it.kind;
+      $('#tm_name').value = it.name;
+      $('#tm_active').value = it.active ? 'TRUE' : 'FALSE';
+      $('#tm_sort').value = String(it.sort ?? 0);
+      $('#tm_info').textContent = `Edit: ${it.id}`;
+    });
+  });
+
+  document.querySelectorAll('[data-tm-del]').forEach(b=>{
+    b.addEventListener('click', async()=>{
+      const id = b.getAttribute('data-tm-del');
+      if (!confirm('Hapus item ini?')) return;
+      await adminTrainingMetaDelete(id);
+    });
+  });
+}
+
+async function adminTrainingMetaList(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  const r = await api('adminTrainingMetaList', { admin_token: State.adminToken });
+  if (!r.ok) throw new Error(r.error || 'Gagal load training meta');
+
+  State._trainingMetaItems = r.items || [];
+  tmRenderTables(State._trainingMetaItems);
+  $('#tm_info').textContent = `Loaded: ${(State._trainingMetaItems||[]).length} item`;
+
+  // ✅ refresh peserta dropdown juga (public cache)
+  try{ await tmLoadFromServer(true); }catch(e){}
+}
+
+async function adminTrainingMetaSave(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+
+  const id = ($('#tm_id').value || '').trim();
+  const kind = ($('#tm_kind').value || 'training_type').trim();
+  const name = ($('#tm_name').value || '').trim();
+  const active = ($('#tm_active').value || 'TRUE') === 'TRUE';
+  const sort = Number($('#tm_sort').value || 0);
+
+  if (!name) throw new Error('Nama wajib diisi.');
+  if (!['training_type','activity'].includes(kind)) throw new Error('Kind tidak valid.');
+
+  const r = await api('adminTrainingMetaUpsert', {
+    admin_token: State.adminToken,
+    id, kind, name, active, sort
+  });
+  if (!r.ok) throw new Error(r.error || 'Gagal simpan');
+
+  $('#tm_info').textContent = `✅ Tersimpan: ${r.id}`;
+  tmResetForm();
+  await adminTrainingMetaList();
+}
+
+async function adminTrainingMetaDelete(id){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  const r = await api('adminTrainingMetaDelete', { admin_token: State.adminToken, id });
+  if (!r.ok) throw new Error(r.error || 'Gagal hapus');
+  $('#tm_info').textContent = '✅ ' + (r.message || 'Terhapus');
+  await adminTrainingMetaList();
 }
 
 /* =========================
@@ -3024,18 +3494,20 @@ function initMode(){
     togglePesertaCameraBox();
     validateEnablePresensi();
     updateScanBadge();
+    smartStatusUpdate(true);
   }
   mode.addEventListener('change', refresh);
   refresh();
 
   document.querySelectorAll('.chip').forEach(ch=>{
-    ch.addEventListener('click', ()=>{ $('#gate_reason').value = ch.dataset.reason; validateEnablePresensi(); });
+    ch.addEventListener('click', ()=>{ $('#gate_reason').value = ch.dataset.reason; smartStatusUpdate(true);});
   });
 
     $('#btn-in').addEventListener('click', async()=>{
     State.gateDirection = 'IN';
     validateEnablePresensi();
     updateScanBadge();
+    smartStatusUpdate(true);
     await openPesertaCameraModal(); // ✅ buka kamera full-screen
     UI.setResult('Mobilitas: MASUK. Pastikan wajah jelas lalu tekan Presensi.', true);
   });
@@ -3044,12 +3516,22 @@ function initMode(){
     State.gateDirection = 'OUT';
     validateEnablePresensi();
     updateScanBadge();
+    smartStatusUpdate(true);
     await openPesertaCameraModal(); // ✅ buka kamera full-screen
     UI.setResult('Mobilitas: KELUAR. Pastikan wajah jelas lalu tekan Presensi.', true);
   });
+
+  // gate reason berubah dari input/chip
+  $('#gate_reason')?.addEventListener('input', ()=>{clearPresensiFail(); smartStatusUpdate(false);});
+  $('#gate_reason')?.addEventListener('change', ()=>{clearPresensiFail(); smartStatusUpdate(false);});
 }
 
 function initTraining(){
+    // ✅ load meta dari cache dulu, lalu dari server
+  tmLoadFromLS();
+  tmApplyToPesertaUI();
+  tmLoadFromServer(false).catch(()=>{ /* silent */ });
+
   const t = $('#training_type');
   const a = $('#activity');
 
@@ -3085,6 +3567,13 @@ function initTraining(){
     validateEnablePresensi();
   }, 250));
 
+    // ✅ status realtime saat user ubah pilihan training
+  ['change','input'].forEach(ev=>{
+    t.addEventListener(ev, ()=> smartStatusUpdate(true));
+    a.addEventListener(ev, ()=> smartStatusUpdate(true));
+    $('#material')?.addEventListener(ev, ()=> smartStatusUpdate(false));
+  });
+
   toggleMaterial();
 }
 
@@ -3092,6 +3581,7 @@ function initAdminModal(){
   const modal = $('#admin-modal');
   $('#btn-admin-open').addEventListener('click', async ()=>{
   show(modal);
+  try{ tmResetForm(); }catch(e){}
 
   if (isAdminSessionValid()){
     $('#admin-login-pane').classList.add('hidden');
@@ -3120,15 +3610,18 @@ function initAdminModal(){
       initNameTag();
       State.nameTagInited = true;
     } else {
-      // kalau sudah pernah init, cukup refresh render (opsional tapi enak)
       try{ ntRenderQueue(); ntRenderPreview(); }catch(e){}
     }
+
+    // ✅ apapun kondisinya, pastikan pane sesuai tab aktif ditampilkan
+    adminSwitchTab(document.querySelector('.tab2.active')?.dataset?.atab || 'enroll');
 
   } else {
     $('#admin-pane').classList.add('hidden');
     $('#admin-login-pane').classList.remove('hidden');
     $('#btn-admin-logout').disabled = true;
     $('#admin-session').textContent = '';
+    adminSwitchTab('enroll');
   }
 });
   $('#btn-admin-close').addEventListener('click', ()=> hide(modal));
@@ -3144,14 +3637,67 @@ function initAdminModal(){
   $('#btn-admin-login').addEventListener('click', adminLogin);
   $('#btn-admin-logout').addEventListener('click', adminLogout);
 
-  // admin tabs
-  document.querySelectorAll('.tab2').forEach(t=>{
-    t.addEventListener('click', ()=>{
-      document.querySelectorAll('.tab2').forEach(x=>x.classList.remove('active'));
-      t.classList.add('active');
-      const tab = t.dataset.atab;
-      document.querySelectorAll('.apane').forEach(p=>p.classList.remove('active'));
-      $('#apane-'+tab).classList.add('active');
+  // admin tabs (ROBUST: support .active dan/atau .hidden)
+  function adminSwitchTab(tab){
+    tab = String(tab || '').trim().toLowerCase();
+    if (!tab) tab = 'enroll';
+
+    // 1) set active tab button
+    document.querySelectorAll('.tab2').forEach(btn=>{
+      const v = String(btn.dataset.atab || '').trim().toLowerCase();
+      btn.classList.toggle('active', v === tab);
+    });
+
+    // 2) cari target pane
+    const panes = Array.from(document.querySelectorAll('#admin-pane .apane'));
+    const targetId = 'apane-' + tab;
+    const target = document.getElementById(targetId);
+
+    // helper show/hide yang kompatibel dengan CSS manapun
+    const showPane = (el, on)=>{
+      if (!el) return;
+      el.classList.toggle('active', !!on);
+      el.classList.toggle('hidden', !on);     // ✅ penting: pastikan hidden ikut berubah
+      el.style.display = on ? '' : 'none';    // ✅ fallback jika CSS tidak punya rule .hidden
+    };
+
+    // 3) kalau target tidak ketemu → jangan blank
+    if (!target){
+      console.warn('[ADMIN TAB] Pane not found:', targetId);
+
+      // hide semua
+      panes.forEach(p=> showPane(p, false));
+
+      // fallback: tampilkan pane pertama yang ada
+      if (panes[0]) showPane(panes[0], true);
+
+      UI.setAdminResult(`Pane "${targetId}" tidak ditemukan. Cek id pane & data-atab tab.`, false);
+      return;
+    }
+
+    // 4) hide semua, show target
+    panes.forEach(p=> showPane(p, p === target));
+
+    // 5) auto-load saat masuk tab training
+    if (tab === 'training'){
+      const btn = document.getElementById('btn-tm-refresh');
+      if (btn){
+        Busy.wrap(
+          btn,
+          async()=> await adminTrainingMetaList(),
+          { text:'Memuat…', overlay:false }
+        );
+      } else {
+        // tetap coba load meski tombol tidak ada
+        adminTrainingMetaList().catch(()=>{});
+      }
+    }
+  }
+
+  // bind clicks
+  document.querySelectorAll('.tab2').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      adminSwitchTab(btn.dataset.atab);
     });
   });
 
@@ -3243,6 +3789,25 @@ function initAdminModal(){
     { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan PIN Baru…' }
     ));
 
+    // ✅ TRAINING META CRUD
+      $('#btn-tm-refresh')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-tm-refresh'),
+        async()=> await adminTrainingMetaList(),
+        { text:'Refresh…', overlay:true, overlayText:'Memuat master training…' }
+      ));
+
+      $('#btn-tm-save')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-tm-save'),
+        async()=> await adminTrainingMetaSave(),
+        { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan master training…' }
+      ));
+
+      $('#btn-tm-reset')?.addEventListener('click', ()=> Busy.wrap(
+        $('#btn-tm-reset'),
+        async()=>{ tmResetForm(); $('#tm_info').textContent='-'; },
+        { text:'Reset…' }
+      ));
+
   // materi CRUD
     $('#btn-m-refresh').addEventListener('click', ()=> Busy.wrap(
     $('#btn-m-refresh'),
@@ -3288,7 +3853,8 @@ function initCameraModals(){
     openP.addEventListener('click', async()=>{
       await openPesertaCameraModal();
       if (($('#mode')?.value || '') === 'gate' && !State.gateDirection){
-        UI.setResult('Mode Mobilitas Peserta: pilih dulu Masuk atau Keluar agar tombol Presensi aktif.', false);
+        setPresensiFail('Mode Mobilitas Peserta: pilih dulu Masuk atau Keluar agar tombol Presensi aktif');
+        UI.setResult(State.ui.lastFailMessage, false);
       }
     });
   }
@@ -3358,6 +3924,7 @@ async function openPesertaCameraModal(){
   // ✅ bersihkan hasil modal kamera (posisinya sudah tepat)
   const rc = document.getElementById('result-cam');
   if (rc) rc.innerHTML = '';
+  try{ camOutcomeHide(); }catch(e){}
 
   // title dinamis
   const mode = ($('#mode')?.value || 'training');
@@ -3767,6 +4334,7 @@ $('#btn-presensi').addEventListener('click', ()=> Busy.wrap(
   // await switchCamera('admin', State.cam.adminFacing);
   updateLocPill();
   validateEnablePresensi();
+  smartStatusUpdate(true);
 
   // warm up models
   try{ await loadModels(); } catch(e){ /* will retry on demand */ }
