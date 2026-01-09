@@ -913,60 +913,68 @@ function bindGateViewToggle(){
 }
 
 async function main(){
-  UI.setStatus('⏳ Aplikasi sedang disiapkan…');
-  
-  State.deviceId = getOrCreateDeviceId();
-  $('#device-info').innerHTML = `Device ID: <b>${escapeHtml(State.deviceId)}</b>`;
+  // SECTION: Startup Overlay
+  try{
+    UI.setStatus('⏳ Aplikasi sedang disiapkan…');
+    busyOverlay(true, 'Aplikasi sedang disiapkan…'); // ✅ overlay startup
+  }catch(e){}
 
-  gfLoadFromLS();
-  initMode();
-  initTraining();
-  initAdminModal();
-  initCameraModals();
+  try{
+    State.deviceId = getOrCreateDeviceId();
+    $('#device-info').innerHTML = `Device ID: <b>${escapeHtml(State.deviceId)}</b>`;
+
+    gfLoadFromLS();
+    initMode();
+    initTraining();
+    initAdminModal();
+    initCameraModals();
 
     $('#btn-checkloc').addEventListener('click', ()=> Busy.wrap(
-    $('#btn-checkloc'),
-    async()=>{
-      try{
-        await checkLocation({ force:true, silent:false });
+      $('#btn-checkloc'),
+      async()=>{
+        try{
+          await checkLocation({ force:true, silent:false });
+          updatePresensiReadyMessage();
+        } catch(e){
+          UI.setResult(e.message || String(e), false);
+        }
+      },
+      { text:'Cek Lokasi…' }
+    ));
 
-        // ✅ jangan hardcode "berhasil", tampilkan sesuai inFence
-        updatePresensiReadyMessage();
+    $('#btn-presensi').addEventListener('click', ()=> Busy.wrap(
+      $('#btn-presensi'),
+      async()=> await doPresensi(),
+      { text:'Memproses…' } // tombol spinner saja (tanpa overlay) agar video tetap terlihat
+    ));
 
-      } catch(e){
-        UI.setResult(e.message || String(e), false);
-      }
-    },
-    { text:'Cek Lokasi…' }
-  ));
+    // ✅ load config dulu (agar liveness/threshold/geofence siap)
+    await loadConfig(true);
 
-$('#btn-presensi').addEventListener('click', ()=> Busy.wrap(
-  $('#btn-presensi'),
-  async()=> await doPresensi(),
-  { text:'Memproses…' } // tombol spinner saja (tanpa overlay) agar video tetap terlihat
-));
-
-  // camera peserta + admin
-  // load config dulu (agar liveness/threshold/geofence siap)
-  await loadConfig(true);
     // ✅ AUTO cek lokasi saat aplikasi load/refresh
-  updateLocPill();
-  try{
-    await checkLocation({ force:false, silent:true, maxAgeMs:45000 });
-    updatePresensiReadyMessage();
-  } catch(e){
-    // silent:true biasanya tidak throw
+    updateLocPill();
+    try{
+      await checkLocation({ force:false, silent:true, maxAgeMs:45000 });
+      updatePresensiReadyMessage();
+    } catch(e){
+      // silent
+    }
+
+    updateLocPill();
+    validateEnablePresensi();
+    smartStatusUpdate(true);
+
+    // warm up models
+    try{ await loadModels(); } catch(e){ /* retry on demand */ }
+
+  } catch(err){
+    console.error(err);
+    try{ UI.setResult(String(err?.message || err), false); }catch(e){}
+  } finally {
+    // ✅ Tutup overlay setelah semua init selesai (sukses/gagal)
+    try{ busyOverlay(false); }catch(e){}
+    try{ UI.setStatus('✅ Siap'); }catch(e){}
   }
-
-  // Kamera sekarang dibuka saat modal dibuka (lebih hemat & full screen)
-  // await switchCamera('peserta', State.cam.pesertaFacing);
-  // await switchCamera('admin', State.cam.adminFacing);
-  updateLocPill();
-  validateEnablePresensi();
-  smartStatusUpdate(true);
-
-  // warm up models
-  try{ await loadModels(); } catch(e){ /* will retry on demand */ }
 }
 
 main();
