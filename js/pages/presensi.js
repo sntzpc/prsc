@@ -1,83 +1,20 @@
-// SECTION: Presensi Flow (Peserta)
-// Purpose : End-to-end presensi: check location -> open camera -> face match -> send to server -> UI feedback.
-// Depends : core/base.js, core/api.js, core/location_base.js, core/face.js, core/status.js, pages/camera.js.
-// Provides: doPresensi(), presensiHandlers(), validateBeforePresensi().
+// SECTION: Presensi Flow (Peserta) + Auto Trigger
+// Behavior:
+// - Saat modal kamera terbuka: tombol presensi tetap bisa diklik.
+// - Jika 3 detik tidak diklik: auto jalankan doPresensi().
+// - Aman dari double trigger (manual & auto).
+// Depends: base.js ($, State, UI), busy.js (runExclusive), location/geofence, face, status, camera.
 
-/* =========================
-   PRESENSI FLOW (peserta)
-   1) checkLocation
-   2) liveness (blink/turn)
-   3) multi-shot avg (3)
-   4) send verifyAndLog (device_id included)
-   ========================= */
+// SECTION: Auto Presensi Config
+const AUTO_PRESENSI_DELAY_MS = 2000;
 
+// internal state
+let autoPresensiTimer = null;
+let autoPresensiArmed = false;       // kamera sedang terbuka & timer aktif
+let autoPresensiTriggered = false;   // sudah trigger (manual/auto) pada sesi kamera ini
 
-/* ============================================
-   SECTION: Presensi Idle Auto Enable (Button)
-   Tujuan:
-   - Tombol presensi otomatis aktif jika 3 detik tidak ada klik.
-   - Saat klik presensi / ada aktivitas presensi: tombol disable, timer reset.
-   - Selesai presensi (sukses/gagal): timer jalan lagi agar tombol aktif kembali.
-   ============================================ */
-
-const PRESENSI_BTN_SEL = '#btn-presensi';
-const PRESENSI_IDLE_MS = 3000; // 3 detik
-let presensiIdleTimer = null;
-
-function getPresensiBtn(){
-  return $(PRESENSI_BTN_SEL);
-}
-
-function setPresensiButtonEnabled(enabled){
-  const btn = getPresensiBtn();
-  if (!btn) return;
-
-  btn.disabled = !enabled;
-  btn.classList.toggle('disabled', !enabled);
-
-  // opsional: beri tooltip kecil
-  if (!enabled) btn.setAttribute('data-busy', '1');
-  else btn.removeAttribute('data-busy');
-}
-
-/** Mulai ulang timer idle: disable dulu, lalu enable setelah idle */
-function resetPresensiIdleTimer(){
-  if (presensiIdleTimer){
-    clearTimeout(presensiIdleTimer);
-    presensiIdleTimer = null;
-  }
-
-  // setiap ada aktivitas, disable dulu
-  setPresensiButtonEnabled(false);
-
-  presensiIdleTimer = setTimeout(() => {
-    setPresensiButtonEnabled(true);
-  }, PRESENSI_IDLE_MS);
-}
-
-/** Hentikan timer idle (misalnya saat modal kamera dibuka lama) */
-function stopPresensiIdleTimer(){
-  if (presensiIdleTimer){
-    clearTimeout(presensiIdleTimer);
-    presensiIdleTimer = null;
-  }
-}
-
-/** Panggil ini sekali saat halaman presensi siap dipakai */
-function presensiIdleInit(){
-  // Saat pertama kali masuk pane presensi: tombol akan aktif setelah 3 detik
-  resetPresensiIdleTimer();
-}
-
-
-/* ============================================
-   SECTION: Presensi Main Flow
-   ============================================ */
-
+// SECTION: Presensi Main Flow (PASTIKAN INI ADA DI FILE INI)
 async function doPresensi(){
-  // ✅ Setiap kali user memulai presensi, reset timer (tombol akan disable, lalu aktif lagi setelah idle)
-  resetPresensiIdleTimer();
-
   return runExclusive('presensi', async()=>{
     try{
       statusSetLock(true);
@@ -155,8 +92,6 @@ async function doPresensi(){
           presensiFailCam('Presensi duplikat terdeteksi.<br/>Jika barusan sudah presensi, tidak perlu ulang. (Anti-Duplicate Aktif)');
           return;
         }
-
-        // ✅ semua error server -> overlay fail juga
         presensiFailCam(`${escapeHtml(r.error || 'Gagal')}<br/>Status: ${escapeHtml(r.status || '-')}`);
         return;
       }
@@ -167,49 +102,127 @@ async function doPresensi(){
       if (!State.ui.outcomeLock){
         statusSetLock(false);
       }
-
       State.gateDirection = null;
       updateScanBadge();
-
       if (!State.ui.outcomeLock){
         smartStatusUpdate(true);
       }
-
-      // ✅ Setelah proses presensi selesai (sukses/gagal), jadwalkan tombol aktif lagi setelah idle
-      resetPresensiIdleTimer();
     }
   });
 }
 
-
-/* ============================================
-   SECTION: Presensi Handlers (UI events)
-   Catatan: Pastikan Anda memanggil presensiHandlers() saat init/pane presensi siap.
-   ============================================ */
-
-function presensiHandlers(){
-  const btn = getPresensiBtn();
-  if (!btn) return;
-
-  // hindari dobel listener jika init terpanggil ulang
-  if (btn.dataset.bound === '1') return;
-  btn.dataset.bound = '1';
-
-  // saat aplikasi siap: tombol akan aktif otomatis setelah 3 detik
-  presensiIdleInit();
-
-  btn.addEventListener('click', async ()=>{
-    // ✅ klik dianggap aktivitas: disable + reset timer langsung
-    resetPresensiIdleTimer();
-    await doPresensi();
-  });
-
-  // Opsional (kalau Anda mau): setiap user klik area mode/training/activity,
-  // timer direset supaya tombol tidak langsung aktif saat user masih mengubah pilihan.
-  const watchIds = ['#mode','#training_type','#activity','#material','#gate_reason'];
-  watchIds.forEach(sel=>{
-    const el = $(sel);
-    if (!el) return;
-    el.addEventListener('change', ()=> resetPresensiIdleTimer());
-  });
+// SECTION: Auto Presensi Helpers
+function getCameraModalEl(){
+  // sesuaikan bila ID modal Anda berbeda
+  return $('#camera-modal') || $('#cam-modal') || $('#modal-camera') || $('#pcam-modal');
 }
+
+function isModalVisible(el){
+  if (!el) return false;
+  const hidden = el.classList.contains('hidden') || el.style.display === 'none';
+  return !hidden;
+}
+
+function clearAutoPresensiTimer(){
+  if (autoPresensiTimer){
+    clearTimeout(autoPresensiTimer);
+    autoPresensiTimer = null;
+  }
+}
+
+async function waitVideoReady(videoEl, timeoutMs = 2500){
+  const v = videoEl || $('#video');
+  if (!v) return false;
+
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs){
+    if (v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0) return true;
+    await new Promise(r => setTimeout(r, 80));
+  }
+  return false;
+}
+
+function armAutoPresensi(){
+  autoPresensiArmed = true;
+  autoPresensiTriggered = false;
+
+  clearAutoPresensiTimer();
+
+  // tombol presensi tetap bisa manual
+  const btn = $('#btn-presensi');
+  if (btn){
+    btn.disabled = false;
+    btn.classList.remove('disabled');
+  }
+
+  autoPresensiTimer = setTimeout(async () => {
+    const modal = getCameraModalEl();
+    if (!autoPresensiArmed || !isModalVisible(modal)) return;
+    if (autoPresensiTriggered) return;
+
+    autoPresensiTriggered = true;
+
+    // tunggu video siap agar scan tidak gagal karena stream belum ready
+    await waitVideoReady($('#video'), 3000);
+
+    try{
+      await doPresensi();
+    }catch(e){
+      console.warn('[auto-presensi] error:', e);
+    }
+  }, AUTO_PRESENSI_DELAY_MS);
+}
+
+function disarmAutoPresensi(){
+  autoPresensiArmed = false;
+  autoPresensiTriggered = false;
+  clearAutoPresensiTimer();
+}
+
+function bindPresensiButtonForAutoOnce(){
+  const btn = $('#btn-presensi');
+  if (!btn) return;
+  if (btn.dataset.autoBound === '1') return;
+  btn.dataset.autoBound = '1';
+
+  // capture=true supaya dieksekusi lebih dulu daripada handler click lain
+  btn.addEventListener('click', () => {
+    if (autoPresensiArmed){
+      autoPresensiTriggered = true; // manual click = kunci auto
+      clearAutoPresensiTimer();
+    }
+  }, true);
+}
+
+function initAutoPresensiOnCameraModal(){
+  const modal = getCameraModalEl();
+  if (!modal) {
+    console.warn('[auto-presensi] modal kamera tidak ditemukan. Cek ID modal.');
+    return;
+  }
+
+  bindPresensiButtonForAutoOnce();
+
+  const obs = new MutationObserver(() => {
+    const visible = isModalVisible(modal);
+    if (visible) armAutoPresensi();
+    else disarmAutoPresensi();
+  });
+
+  obs.observe(modal, { attributes:true, attributeFilter:['class','style'] });
+
+  // kondisi awal
+  if (isModalVisible(modal)) armAutoPresensi();
+}
+
+// SECTION: Export Globals (dibutuhkan jika app.js memanggil doPresensi())
+(function exposePresensiGlobals(){
+  window.Presensi = window.Presensi || {};
+  window.Presensi.doPresensi = doPresensi;
+  window.doPresensi = doPresensi; // backward compat
+})();
+
+// SECTION: Init Auto Presensi Hook
+window.addEventListener('DOMContentLoaded', () => {
+  initAutoPresensiOnCameraModal();
+});
