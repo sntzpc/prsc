@@ -1,3 +1,7 @@
+// SECTION: Legacy Monolith (Backup)
+// Purpose : Original single-file app.js before modularization.
+// Notes   : Not loaded by index.html; kept only as reference/backup.
+
 const $ = (s, r=document) => r.querySelector(s);
 
 const State = {
