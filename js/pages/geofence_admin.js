@@ -196,71 +196,106 @@ function gfEnsureAdminUI(){
     const st = document.createElement('style');
     st.id = 'gf-admin-style';
     st.textContent = `
-      #gf-admin{ margin-top:16px; padding:14px; border:1px solid rgba(0,0,0,.12); border-radius:14px; background:rgba(255,255,255,.04); }
-      #gf-admin h3{ margin:0 0 10px; font-weight:900; }
-      #gf-admin .row{ display:grid; grid-template-columns: 1.3fr .9fr .9fr .8fr .7fr; gap:8px; align-items:center; }
-      #gf-admin .row > *{ min-width:0; }
-      #gf-admin input, #gf-admin select{
-          width:100%;
-          padding:8px 10px;
-          border-radius:10px;
-          border:1px solid rgba(0,0,0,.22);
-          background:#fff;
-          color:#000;
-        }
-        #gf-admin input::placeholder{ color: rgba(0,0,0,.55); }
-      #gf-admin .mini{ font-size:12px; opacity:.85; }
-      #gf-admin table{ width:100%; border-collapse:collapse; margin-top:10px; }
-      #gf-admin th, #gf-admin td{ padding:8px; border-bottom:1px solid rgba(0,0,0,.08); text-align:left; font-size:13px; }
-      #gf-admin .btns{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-      #gf-admin .tag{ display:inline-block; padding:2px 8px; border-radius:999px; font-weight:800; font-size:12px; }
-      #gf-admin .tag.ok{ background:rgba(34,197,94,.15); color:#166534; }
-      #gf-admin .tag.off{ background:rgba(239,68,68,.12); color:#7f1d1d; }
-      @media (max-width: 720px){
-        #gf-admin .row{ grid-template-columns: 1fr 1fr; }
-      }
-    `;
+  /* ====== GF ADMIN CARD ====== */
+  #gf-admin{    margin-top:16px;    padding:14px;    border:1px solid rgba(255,255,255,.10);    border-radius:14px;    background:rgba(255,255,255,.04);  }
+  #gf-admin h3{ margin:0 0 10px; font-weight:900; }
+  #gf-admin .mini{ font-size:12px; opacity:.85; }
+
+  /* ====== FORM GRID ====== */
+  #gf-admin .gf-form{    display:grid;    grid-template-columns: 1.2fr 1fr 1fr .9fr .8fr;    gap:8px;    align-items:center;    margin-top:10px;  }
+  #gf-admin .gf-form > *{ min-width:0; }
+
+  /* make each input feel consistent */
+  #gf-admin input, #gf-admin select{    width:100%;    padding:9px 10px;    border-radius:10px;    border:1px solid rgba(255,255,255,.14);    background:rgba(255,255,255,.06);    color:inherit;    outline:none;  }
+  #gf-admin input::placeholder{ opacity:.65; }
+
+  /* ====== BUTTONS ====== */
+  #gf-admin .gf-btns{    display:flex;    gap:8px;    flex-wrap:wrap;    margin-top:10px;  }
+
+  /* ====== TABLE WRAPPER: FIX OVERFLOW MOBILE ====== */
+  #gf-admin .gf-table-wrap{    margin-top:10px;    border:1px solid rgba(255,255,255,.10);    border-radius:12px;    overflow:hidden;             /* biar radius rapi */    background:rgba(0,0,0,.10);  }
+  #gf-admin .gf-table-scroll{    overflow-x:auto;             /* scroll kiri kanan */    overflow-y:auto;             /* scroll atas bawah kalau panjang */    -webkit-overflow-scrolling: touch;    max-height: 46vh;            /* agar tidak keluar modal */  }
+
+  #gf-admin table{    border-collapse:collapse;    width:100%;    min-width: 820px;            /* penting: supaya scroll-x aktif */  }
+  #gf-admin th, #gf-admin td{    padding:8px 10px;    border-bottom:1px solid rgba(255,255,255,.08);    text-align:left;    font-size:13px;    vertical-align:top;    white-space:nowrap;  }
+  #gf-admin th{ font-weight:900; opacity:.95; position:sticky; top:0; background:rgba(20,20,20,.95); }
+  #gf-admin td .mini{ margin-top:4px; }
+
+  #gf-admin .tag{    display:inline-block;    padding:2px 8px;    border-radius:999px;    font-weight:900;    font-size:12px; }
+  #gf-admin .tag.ok{ background:rgba(34,197,94,.18); color:#86efac; }
+  #gf-admin .tag.off{ background:rgba(239,68,68,.18); color:#fecaca; }
+
+  /* ====== MOBILE LAYOUT ====== */
+  @media (max-width: 720px){    #gf-admin{ padding:12px; }
+    #gf-admin .gf-form{      grid-template-columns: 1fr 1fr;      grid-template-areas:        "name name"        "lat  lng"        "rad  active";    }
+    #gf_name{ grid-area:name; }
+    #gf_lat { grid-area:lat; }
+    #gf_lng { grid-area:lng; }
+    #gf_rad { grid-area:rad; }
+    #gf_active{ grid-area:active; }
+
+    #gf-admin .gf-btns{      display:grid;      grid-template-columns: 1fr 1fr;      gap:10px;    }
+    #gf-admin .gf-btns .btn{ width:100%; }
+  }
+
+  @media (max-width: 420px){    #gf-admin .gf-form{      grid-template-columns: 1fr;      grid-template-areas:        "name"        "lat"        "lng"        "rad"        "active";    }
+    #gf-admin .gf-btns{ grid-template-columns: 1fr; }
+  }
+`;
     document.head.appendChild(st);
   }
 
   box = document.createElement('div');
   box.id = 'gf-admin';
   box.innerHTML = `
-    <h3>📍 Multi Lokasi Geofence</h3>
-    <div class="mini">
-      Anda bisa tambah/kurangi titik (lat,lng,radius) dari frontend.
-      checkLocation() akan memakai titik <b>aktif</b> terdekat. Jika kosong, fallback ke Default (Server).
+  <h3>📍 Multi Lokasi Geofence</h3>
+
+  <div class="mini">
+    Anda bisa tambah/kurangi titik (lat,lng,radius) dari frontend.
+    checkLocation() akan memakai titik <b>aktif</b> terdekat. Jika kosong, fallback ke Default (Server).
+  </div>
+
+  <!-- FORM -->
+  <div class="gf-form">
+    <input id="gf_name" placeholder="Nama titik (contoh: Training Center A)" />
+    <input id="gf_lat"  placeholder="Lat (contoh: -1.23456)" inputmode="decimal"/>
+    <input id="gf_lng"  placeholder="Lng (contoh: 112.34567)" inputmode="decimal"/>
+    <input id="gf_rad"  placeholder="Radius (m)" inputmode="numeric"/>
+    <select id="gf_active">
+      <option value="TRUE" selected>Aktif</option>
+      <option value="FALSE">Nonaktif</option>
+    </select>
+  </div>
+
+  <!-- BUTTONS -->
+  <div class="gf-btns">
+    <button class="btn primary" type="button" id="gf_add">Tambah Titik</button>
+    <button class="btn" type="button" id="gf_use_current">Gunakan Lokasi Saat Ini</button>
+    <button class="btn danger" type="button" id="gf_clear">Hapus Semua (Local)</button>
+    <button class="btn" type="button" id="gf_refresh">Refresh List</button>
+  </div>
+
+  <div id="gf_info" class="mini" style="margin-top:10px;">-</div>
+
+  <!-- TABLE (SCROLL INSIDE CARD) -->
+  <div class="gf-table-wrap">
+    <div class="gf-table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="min-width:220px;">Nama</th>
+            <th style="min-width:110px;">Lat</th>
+            <th style="min-width:110px;">Lng</th>
+            <th style="min-width:90px;">Radius</th>
+            <th style="min-width:90px;">Status</th>
+            <th style="min-width:240px;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="gf_tbody"></tbody>
+      </table>
     </div>
-
-    <div style="margin-top:10px;" class="row">
-      <input id="gf_name" placeholder="Nama titik (contoh: Training Center A)" />
-      <input id="gf_lat"  placeholder="Lat (contoh: -1.23456)" inputmode="decimal"/>
-      <input id="gf_lng"  placeholder="Lng (contoh: 112.34567)" inputmode="decimal"/>
-      <input id="gf_rad"  placeholder="Radius (m)" inputmode="numeric"/>
-      <select id="gf_active">
-        <option value="TRUE" selected>Aktif</option>
-        <option value="FALSE">Nonaktif</option>
-      </select>
-    </div>
-
-    <div class="btns">
-      <button class="btn primary" type="button" id="gf_add">Tambah Titik</button>
-      <button class="btn" type="button" id="gf_use_current">Gunakan Lokasi Saat Ini</button>
-      <button class="btn" type="button" id="gf_clear">Hapus Semua (Local)</button>
-      <button class="btn" type="button" id="gf_refresh">Refresh List</button>
-    </div>
-
-    <div id="gf_info" class="mini" style="margin-top:8px;">-</div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Nama</th><th>Lat</th><th>Lng</th><th>Radius</th><th>Status</th><th>Aksi</th>
-        </tr>
-      </thead>
-      <tbody id="gf_tbody"></tbody>
-    </table>
-  `;
+  </div>
+`;
 
   host.appendChild(box);
   return box;
@@ -287,8 +322,10 @@ function gfRenderAdminTable(){
       <td>${escapeHtml(String(p.radius_m))} m</td>
       <td>${p.active ? `<span class="tag ok">AKTIF</span>` : `<span class="tag off">OFF</span>`}</td>
       <td>
-        <button class="btn" type="button" data-gf-toggle="${escapeHtml(p.id)}">${p.active?'Nonaktifkan':'Aktifkan'}</button>
-        <button class="btn danger" type="button" data-gf-del="${escapeHtml(p.id)}">Hapus</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" type="button" data-gf-toggle="${escapeHtml(p.id)}">${p.active?'Nonaktifkan':'Aktifkan'}</button>
+          <button class="btn danger" type="button" data-gf-del="${escapeHtml(p.id)}">Hapus</button>
+        </div>
       </td>
     </tr>
   `).join('');
