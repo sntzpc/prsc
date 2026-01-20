@@ -25,6 +25,29 @@ async function detectOnce(videoEl){
     .withFaceDescriptor();
 }
 
+/* =========================
+   Video readiness helper
+   - Mencegah error ketika videoWidth/videoHeight masih 0
+   - Umum terjadi jika user klik tombol cepat setelah modal kamera dibuka
+   ========================= */
+async function ensureVideoReady_(videoEl, timeoutMs=3500){
+  if (!videoEl) throw new Error('Video element tidak ditemukan');
+
+  // coba play (autoplay kadang tertahan)
+  try{ await videoEl.play?.(); }catch(e){}
+
+  const t0 = performance.now();
+  while ((performance.now() - t0) < timeoutMs){
+    // HAVE_CURRENT_DATA=2
+    if ((videoEl.readyState || 0) >= 2 && (videoEl.videoWidth || 0) > 0 && (videoEl.videoHeight || 0) > 0){
+      return true;
+    }
+    await new Promise(r => requestAnimationFrame(()=>r()));
+  }
+
+  throw new Error('Kamera belum siap (video belum memuat frame). Tunggu 1–2 detik lalu coba lagi.');
+}
+
 function avgDescriptors(descs){
   const n = descs.length;
   const m = descs[0].length;
@@ -44,11 +67,15 @@ function avgDescriptors(descs){
 async function captureMultiShotAvg(videoEl, shots=3, maxMs=2500){
   if (!State.modelsReady) await loadModels();
 
+  // ✅ pastikan video sudah punya frame (hindari HAVE_NOTHING / videoWidth=0)
+  await ensureVideoReady_(videoEl, Math.min(3500, Math.max(1200, maxMs)));
+
   const got = [];
   const t0 = performance.now();
 
   while (got.length < shots && (performance.now() - t0) < maxMs){
-    const det = await detectOnce(videoEl);
+    let det = null;
+    try{ det = await detectOnce(videoEl); }catch(e){ det = null; }
     if (det && det.descriptor){
       got.push(Array.from(det.descriptor));
       // tunggu 1-2 frame saja biar descriptor beda (lebih cepat dari sleep 220ms)

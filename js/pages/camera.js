@@ -168,12 +168,38 @@ async function toggleCamera(kind){
 }
 
 async function capturePhotoDataURL(videoEl){
+  if (!videoEl) throw new Error('Video element tidak ditemukan');
+
+  // ✅ pastikan video benar-benar sudah punya frame
+  try{ await videoEl.play?.(); }catch(e){}
+
+  const t0 = performance.now();
+  while ((performance.now() - t0) < 3500){
+    if ((videoEl.readyState || 0) >= 2 && (videoEl.videoWidth || 0) > 0 && (videoEl.videoHeight || 0) > 0) break;
+    await new Promise(r => requestAnimationFrame(()=>r()));
+  }
+
+  const w = Number(videoEl.videoWidth || 0);
+  const h = Number(videoEl.videoHeight || 0);
+  if (!w || !h) throw new Error('Kamera belum siap untuk ambil foto (video size 0). Tunggu sebentar lalu coba lagi.');
+
   const c = document.createElement('canvas');
-  c.width = videoEl.videoWidth;
-  c.height = videoEl.videoHeight;
+  c.width = w;
+  c.height = h;
   const ctx = c.getContext('2d');
-  ctx.drawImage(videoEl, 0, 0);
-  return c.toDataURL('image/jpeg', 0.9);
+  if (!ctx) throw new Error('Canvas context gagal dibuat');
+
+  try{ ctx.drawImage(videoEl, 0, 0); }
+  catch(e){
+    // beberapa browser bisa melempar error jika video belum punya frame
+    throw new Error('Gagal mengambil frame kamera. Coba buka ulang kamera dan pastikan izin kamera aktif.');
+  }
+
+  const dataUrl = c.toDataURL('image/jpeg', 0.9);
+  if (!String(dataUrl||'').startsWith('data:image/')){
+    throw new Error('Gagal membuat foto (dataUrl invalid). Coba ulangi enroll.');
+  }
+  return dataUrl;
 }
 
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
