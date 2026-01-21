@@ -19,7 +19,7 @@ async function loadModels(){
 
 async function detectOnce(videoEl){
   return faceapi
-    .detectSingleFace( videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 })
+    .detectSingleFace( videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 })
     )
     .withFaceLandmarks()
     .withFaceDescriptor();
@@ -64,22 +64,32 @@ function avgDescriptors(descs){
    - enroll: 5 shot
    - verify: 3 shot
    ========================= */
-async function captureMultiShotAvg(videoEl, shots=3, maxMs=2500){
+async function captureMultiShotAvg(videoEl, shots=3, maxMs=8000, onProgress=null){
   if (!State.modelsReady) await loadModels();
 
   // ✅ pastikan video sudah punya frame (hindari HAVE_NOTHING / videoWidth=0)
-  await ensureVideoReady_(videoEl, Math.min(3500, Math.max(1200, maxMs)));
+  // timeout video-ready jangan lebih besar dari maxMs tapi juga tidak terlalu kecil
+  await ensureVideoReady_(videoEl, Math.min(5000, Math.max(1500, Math.floor(maxMs*0.6))));
 
   const got = [];
   const t0 = performance.now();
+  let attempts = 0;
 
-  while (got.length < shots && (performance.now() - t0) < maxMs){
+  // target kira-kira 2x jumlah shot sebagai batas minimal percobaan
+  const maxAttempts = Math.max(shots*8, 20);
+
+  while (got.length < shots && (performance.now() - t0) < maxMs && attempts < maxAttempts){
+    attempts++;
+
     let det = null;
     try{ det = await detectOnce(videoEl); }catch(e){ det = null; }
+
     if (det && det.descriptor){
       got.push(Array.from(det.descriptor));
+      try{ onProgress && onProgress(got.length, shots); }catch(e){}
+
       // tunggu 1-2 frame saja biar descriptor beda (lebih cepat dari sleep 220ms)
-      await nextFrame(); 
+      await nextFrame();
       await nextFrame();
     } else {
       // kalau belum dapat wajah, cukup tunggu 1 frame
