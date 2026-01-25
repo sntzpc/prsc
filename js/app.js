@@ -134,333 +134,245 @@ async function gfOpenGeofenceTabAuto(){
 
 function initAdminModal(){
   const modal = $('#admin-modal');
-  $('#btn-admin-open').addEventListener('click', async ()=>{
+  const adminPane = $('#admin-pane');
+  const loginPane = $('#admin-login-pane');
+  const tabsWrap  = document.querySelector('#admin-pane .tabs2');
+
+  // ---- OPEN/CLOSE ----
+  $('#btn-admin-open')?.addEventListener('click', async ()=>{
     show(modal);
-    // ✅ FORCE CREATE ADMIN TABS TERMASUK MULTI LOKASI
-  const tabsContainer = document.querySelector('#admin-pane .tabs2');
-  if (tabsContainer){
-    // Cek apakah tab geofence sudah ada
-    const existingTabs = Array.from(tabsContainer.querySelectorAll('.tab2'));
-    const hasGeofenceTab = existingTabs.some(tab => tab.dataset.atab === 'geofence');
-    
-    if (!hasGeofenceTab){
-      const btn = document.createElement('button');
-      btn.className = 'tab2';
-      btn.type = 'button';
-      btn.dataset.atab = 'geofence';
-      btn.textContent = 'Multi Lokasi';
-      tabsContainer.appendChild(btn);
-    }
-  }
+
+    // Reset form yang terkait (jaga-jaga)
     try{ tmResetForm(); }catch(e){}
-    
+
+    // Pastikan tab + pane Multi Lokasi tersedia (dibuat oleh geofence_admin.js)
+    try{ gfEnsureAdminTabPane(); }catch(e){}
+
     if (isAdminSessionValid()){
-      $('#admin-login-pane').classList.add('hidden');
-      $('#admin-pane').classList.remove('hidden');
+      loginPane?.classList.add('hidden');
+      adminPane?.classList.remove('hidden');
       $('#admin-session').textContent = `Login OK. Exp: ${new Date(State.adminExp).toLocaleString()}`;
       $('#btn-admin-logout').disabled = false;
-      
-      adminLoadSettings();
-      
-      // ✅ PASTIKAN MULTI LOKASI DIBUAT SAAT MODAL DIBUKA
-      gfEnsureAdminTabPane(); // Buat tab
-      gfEnsureAdminUI();      // Buat UI
-      gfBindAdminUIOnce();    // Bind event listeners
-      
-      try{
-        await gfPullFromServerToLocal();
-        gfRenderAdminTable();
-      }catch(e){
-        gfLoadFromLS();
-        gfRenderAdminTable();
-        UI.setAdminResult('⚠️ Gagal tarik dari server. Menampilkan data lokal.', false);
+
+      // muat modul-modul admin biasa
+      try{ adminLoadSettings(); }catch(e){}
+      try{ adminLoadMateri(); }catch(e){}
+      try{ dashTodayDefaults(); }catch(e){}
+      try{ await initDashboardMeta(); }catch(e){}
+
+      // init fitur heavy hanya sekali
+      if (!State.enrollInited){
+        try{ initEnrollEnhance(); }catch(e){}
+        State.enrollInited = true;
+      } else {
+        try{ enrollUpdateInfo(); }catch(e){}
       }
-      
-      adminLoadMateri();
-      dashTodayDefaults();
-      
-      // ✅ Load meta untuk dropdown
-      await initDashboardMeta();
 
-    // ✅ initEnrollEnhance hanya sekali
-    if (!State.enrollInited){
-      initEnrollEnhance();
-      State.enrollInited = true;
+      if (!State.nameTagInited){
+        try{ initNameTag(); }catch(e){}
+        State.nameTagInited = true;
+      } else {
+        try{ ntRenderQueue(); ntRenderPreview(); }catch(e){}
+      }
+
+      // Pastikan UI geofence ter-mount (listener tombol) tapi data akan ditarik saat tab dibuka
+      try{ gfMountAdminGeofence(); }catch(e){}
+
+      // tampilkan pane sesuai tab aktif (default enroll)
+      adminSwitchTab(document.querySelector('#admin-pane .tab2.active')?.dataset?.atab || 'enroll');
     } else {
-      // refresh info saja
-      try{ enrollUpdateInfo(); }catch(e){}
+      adminPane?.classList.add('hidden');
+      loginPane?.classList.remove('hidden');
+      $('#btn-admin-logout').disabled = true;
+      $('#admin-session').textContent = '';
+      adminSwitchTab('enroll');
     }
-
-    // ✅ initNameTag hanya sekali (hindari dobel listener)
-    if (!State.nameTagInited){
-      initNameTag();
-      State.nameTagInited = true;
-    } else {
-      try{ ntRenderQueue(); ntRenderPreview(); }catch(e){}
-    }
-
-    // ✅ apapun kondisinya, pastikan pane sesuai tab aktif ditampilkan
-    adminSwitchTab(document.querySelector('.tab2.active')?.dataset?.atab || 'enroll');
-
-  } else {
-    $('#admin-pane').classList.add('hidden');
-    $('#admin-login-pane').classList.remove('hidden');
-    $('#btn-admin-logout').disabled = true;
-    $('#admin-session').textContent = '';
-    adminSwitchTab('enroll');
-  }
-});
-  $('#btn-admin-close').addEventListener('click', ()=> hide(modal));
-  modal.addEventListener('click', (e)=>{ if (e.target === modal) hide(modal); });
-
-    // camera toggle admin (enroll)
-    const btnAdminRotate = $('#btn-a-cam-rotate');
-  if (btnAdminRotate){
-    btnAdminRotate.addEventListener('click', ()=> toggleCamera('admin'));
-  }
-
-
-  $('#btn-admin-login').addEventListener('click', adminLogin);
-  $('#btn-admin-logout').addEventListener('click', adminLogout);
-
-  // admin tabs (ROBUST: support .active dan/atau .hidden)
-  function adminSwitchTab(tab){
-  tab = String(tab || '').trim().toLowerCase();
-  if (!tab) tab = 'enroll';
-  
-  // 1) set active tab button
-  document.querySelectorAll('.tab2').forEach(btn=>{
-    const v = String(btn.dataset.atab || '').trim().toLowerCase();
-    btn.classList.toggle('active', v === tab);
   });
-  
-  // 2) Pastikan semua pane ada
-  const panes = Array.from(document.querySelectorAll('#admin-pane .apane'));
-  
-  // 3) CREATE MISSING PANES IF NEEDED
-  if (tab === 'geofence' && !document.getElementById('apane-geofence')){
-    const adminPane = document.getElementById('admin-pane');
-    if (adminPane){
-      const p = document.createElement('div');
-      p.className = 'apane active'; // Langsung aktif
-      p.id = 'apane-geofence';
-      p.innerHTML = `
-        <div id="gf-pane-host"></div>
-        <div class="small" style="opacity:.75;margin-top:10px;">
-          *List lokasi otomatis diambil dari server saat tab ini dibuka.
-        </div>
-      `;
-      adminPane.appendChild(p);
-      
-      // Pastikan UI dibuat
-      gfEnsureAdminUI();
-      gfRenderAdminTable();
-    }
-  }
-  
-  // 4) Tampilkan/sembunyikan pane yang sesuai
-  const targetId = 'apane-' + tab;
-  const target = document.getElementById(targetId);
-  
-  const showPane = (el, on)=>{
-    if (!el) return;
-    el.classList.toggle('active', !!on);
-    el.classList.toggle('hidden', !on);
-    el.style.display = on ? '' : 'none';
-  };
-  
-  if (!target){
-    console.warn('[ADMIN TAB] Pane not found:', targetId);
-    panes.forEach(p=> showPane(p, false));
-    if (panes[0]) showPane(panes[0], true);
-    return;
-  }
-  
-  // Hide all, show target
-  panes.forEach(p=> showPane(p, p === target));
-  
-  // 5) Auto-load data untuk tab tertentu
-  if (tab === 'training'){
-    const btn = document.getElementById('btn-tm-refresh');
-    if (btn){
-      Busy.wrap(btn, async()=> await adminTrainingMetaList(), { text:'Memuat…', overlay:false });
-    }
-  }
-  
-  if (tab === 'geofence'){
-    // Load data geofence
-    Busy.wrap(null, async()=> {
-      try{
-        await gfPullFromServerToLocal();
-        gfRenderAdminTable();
-        UI.setAdminResult('✅ Multi lokasi dimuat dari server.', true);
-      }catch(e){
-        gfLoadFromLS();
-        gfRenderAdminTable();
-        UI.setAdminResult('⚠️ Gagal tarik dari server. Menampilkan data lokal.', false);
-      }
-    }, { text:'Memuat…' });
-  }
-}
 
-  // Event delegation untuk tab (support dynamic tabs)
-  document.querySelector('#admin-pane .tabs2')?.addEventListener('click', (e)=>{
+  $('#btn-admin-close')?.addEventListener('click', ()=> hide(modal));
+  modal?.addEventListener('click', (e)=>{ if (e.target === modal) hide(modal); });
+
+  // camera toggle admin (enroll)
+  $('#btn-a-cam-rotate')?.addEventListener('click', ()=> toggleCamera('admin'));
+
+  // ---- AUTH ----
+  $('#btn-admin-login')?.addEventListener('click', adminLogin);
+  $('#btn-admin-logout')?.addEventListener('click', adminLogout);
+
+  // ---- TABS ----
+  function adminSwitchTab(tab){
+    tab = String(tab || '').trim().toLowerCase() || 'enroll';
+
+    // set active button (scope: admin pane)
+    document.querySelectorAll('#admin-pane .tab2').forEach(btn=>{
+      const v = String(btn.dataset.atab || '').trim().toLowerCase();
+      btn.classList.toggle('active', v === tab);
+    });
+
+    // ensure pane exists for geofence
+    if (tab === 'geofence' && !document.getElementById('apane-geofence')){
+      try{ gfEnsureAdminTabPane(); }catch(e){}
+      try{ gfEnsureAdminUI(); }catch(e){}
+    }
+
+    // hide/show panes (re-query AFTER ensure)
+    const panes = Array.from(document.querySelectorAll('#admin-pane .apane'));
+    const target = document.getElementById('apane-' + tab);
+
+    const showPane = (el, on)=>{
+      if (!el) return;
+      el.classList.toggle('active', !!on);
+      el.classList.toggle('hidden', !on);
+      el.style.display = on ? '' : 'none';
+    };
+
+    panes.forEach(p=> showPane(p, p === target));
+    if (!target && panes[0]) showPane(panes[0], true);
+
+    // per-tab auto-load
+    if (tab === 'training'){
+      const btn = document.getElementById('btn-tm-refresh');
+      if (btn){
+        Busy.wrap(btn, async()=> await adminTrainingMetaList(), { text:'Memuat…', overlay:false });
+      }
+    }
+
+    if (tab === 'geofence'){
+      // mount + tarik data terbaru
+      Busy.wrap(null, async()=>{
+        try{
+          await gfMountAdminGeofence();
+          UI.setAdminResult('✅ Multi lokasi siap.', true);
+        }catch(e){
+          if (handleAdminAuthError_(e)) return;
+          try{
+            gfLoadFromLS();
+            gfRenderAdminTable();
+          }catch(_e){}
+          UI.setAdminResult('⚠️ Gagal sinkron. Menampilkan data lokal.', false);
+        }
+      }, { text:'Memuat…', overlay:false });
+    }
+  }
+
+  // event delegation: satu saja (hindari dobel trigger)
+  tabsWrap?.addEventListener('click', (e)=>{
     const btn = e.target?.closest?.('.tab2');
     if (!btn) return;
     adminSwitchTab(btn.dataset.atab);
-  });
-
-  // Juga bind secara manual sebagai fallback
-  setTimeout(() => {
-    document.querySelectorAll('.tab2').forEach(btn=>{
-      if (!btn.hasAttribute('data-bound')) {
-        btn.addEventListener('click', ()=>{
-          adminSwitchTab(btn.dataset.atab);
-        });
-        btn.setAttribute('data-bound', 'true');
-      }
-    });
-  }, 500);
-
-  // bind clicks
-  document.querySelectorAll('.tab2').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      adminSwitchTab(btn.dataset.atab);
-    });
   });
 
   // default date
   const today = todayISO();
   ['r_start','r_end','l_start','l_end'].forEach(id=>{ const el = $('#'+id); if (el) el.value = today; });
 
-    // actions
-    $('#btn-enroll').addEventListener('click', ()=> Busy.wrap(
+  // actions (tetap sama seperti sebelumnya)
+  $('#btn-enroll')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-enroll'),
     async()=> await doEnroll(),
     { text:'Menyimpan…', overlay:true, overlayText:'Enroll: Simpan + Rekam Wajah…' }
-    ));
+  ));
 
-    $('#btn-rekap').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-rekap')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-rekap'),
     async()=> await adminRekap(),
     { text:'Mengambil…', overlay:true, overlayText:'Mengambil Rekap…' }
-    ));
+  ));
 
-    $('#btn-logs').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-logs')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-logs'),
     async()=> await adminLogs(),
     { text:'Mengambil…', overlay:true, overlayText:'Mengambil Logs…' }
-    ));
+  ));
 
-    $('#btn-export').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-export')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-export'),
     async()=> await adminExportCsv(),
     { text:'Export…', overlay:true, overlayText:'Menyiapkan file CSV…' }
-    ));
+  ));
 
-      // ✅ Dashboard buttons
-    $('#btn-d-preview')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-d-preview'),
-        async()=> await adminPreviewTraining(),
-        { text:'Memuat…', overlay:true, overlayText:'Menyusun Daftar Hadir…' }
-    ));
+  $('#btn-d-preview')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-d-preview'),
+    async()=> await dashPreview(),
+    { text:'Preview…', overlay:true, overlayText:'Menyiapkan preview…' }
+  ));
 
-    $('#btn-d-xlsx')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-d-xlsx'),
-        async()=> await adminExportDashboard('xlsx','training'),
-        { text:'Export…', overlay:true, overlayText:'Menyiapkan XLSX Daftar Hadir…' }
-    ));
+  $('#btn-d-xlsx')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-d-xlsx'),
+    async()=> await dashExportXlsx(),
+    { text:'XLSX…', overlay:true, overlayText:'Membuat XLSX…' }
+  ));
 
-    $('#btn-d-pdf')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-d-pdf'),
-        async()=> await adminExportDashboard('pdf','training'),
-        { text:'PDF…', overlay:true, overlayText:'Menyiapkan PDF Daftar Hadir…' }
-    ));
+  $('#btn-d-pdf')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-d-pdf'),
+    async()=> await dashExportPdf(),
+    { text:'PDF…', overlay:true, overlayText:'Membuat PDF…' }
+  ));
 
-    $('#btn-g-preview')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-g-preview'),
-        async()=> await adminPreviewGate(),
-        { text:'Memuat…', overlay:true, overlayText:'Menyusun Laporan Mobilitas…' }
-    ));
+  $('#btn-g-preview')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-g-preview'),
+    async()=> await gatePreview(),
+    { text:'Preview…', overlay:true, overlayText:'Menyiapkan preview…' }
+  ));
 
-    $('#btn-g-xlsx')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-g-xlsx'),
-        async()=> await adminExportDashboard('xlsx','gate'),
-        { text:'Export…', overlay:true, overlayText:'Menyiapkan XLSX Mobilitas…' }
-    ));
+  $('#btn-g-xlsx')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-g-xlsx'),
+    async()=> await gateExportXlsx(),
+    { text:'XLSX…', overlay:true, overlayText:'Membuat XLSX…' }
+  ));
 
-    $('#btn-g-pdf')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-g-pdf'),
-        async()=> await adminExportDashboard('pdf','gate'),
-        { text:'PDF…', overlay:true, overlayText:'Menyiapkan PDF Mobilitas…' }
-    ));
+  $('#btn-g-pdf')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-g-pdf'),
+    async()=> await gateExportPdf(),
+    { text:'PDF…', overlay:true, overlayText:'Membuat PDF…' }
+  ));
 
-    // toggle view mobilitas
-    bindGateViewToggle();
-
-  // settings
-    $('#btn-save-settings').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-save-settings')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-save-settings'),
     async()=> await adminSaveSettings(),
-    { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan Settings…' }
-    ));
+    { text:'Simpan…', overlay:true, overlayText:'Menyimpan pengaturan…' }
+  ));
 
-    $('#btn-reload-settings').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-reload-settings')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-reload-settings'),
-    async()=> await adminLoadSettings(),
-    { text:'Reload…', overlay:true, overlayText:'Reload Settings…' }
-    ));
+    async()=> await adminLoadSettingsFromServer(true),
+    { text:'Reload…', overlay:true, overlayText:'Memuat pengaturan…' }
+  ));
 
-    $('#btn-change-pin').addEventListener('click', ()=> Busy.wrap(
+  $('#btn-change-pin')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-change-pin'),
     async()=> await adminChangePin(),
-    { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan PIN Baru…' }
-    ));
+    { text:'Ubah…', overlay:true, overlayText:'Mengubah PIN…' }
+  ));
 
-    // ✅ TRAINING META CRUD
-      $('#btn-tm-refresh')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-tm-refresh'),
-        async()=> await adminTrainingMetaList(),
-        { text:'Refresh…', overlay:true, overlayText:'Memuat master training…' }
-      ));
+  // training meta buttons
+  $('#btn-tm-refresh')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-tm-refresh'),
+    async()=> await adminTrainingMetaList(),
+    { text:'Memuat…', overlay:false }
+  ));
+  $('#btn-tm-save')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-tm-save'),
+    async()=> await adminTrainingMetaSave(),
+    { text:'Simpan…', overlay:true, overlayText:'Menyimpan Training Meta…' }
+  ));
+  $('#btn-tm-reset')?.addEventListener('click', ()=>{ try{ tmResetForm(); $('#tm_info').textContent=''; }catch(e){} });
 
-      $('#btn-tm-save')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-tm-save'),
-        async()=> await adminTrainingMetaSave(),
-        { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan master training…' }
-      ));
-
-      $('#btn-tm-reset')?.addEventListener('click', ()=> Busy.wrap(
-        $('#btn-tm-reset'),
-        async()=>{ tmResetForm(); $('#tm_info').textContent='-'; },
-        { text:'Reset…' }
-      ));
-
-  // materi CRUD
-    $('#btn-m-refresh').addEventListener('click', ()=> Busy.wrap(
+  // materi buttons
+  $('#btn-m-refresh')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-m-refresh'),
     async()=> await adminLoadMateri(),
-    { text:'Refresh…', overlay:true, overlayText:'Memuat daftar materi…' }
-    ));
-
-    $('#btn-m-save').addEventListener('click', ()=> Busy.wrap(
+    { text:'Memuat…', overlay:false }
+  ));
+  $('#btn-m-save')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-m-save'),
     async()=> await adminSaveMateri(),
-    { text:'Menyimpan…', overlay:true, overlayText:'Menyimpan materi…' }
-    ));
+    { text:'Simpan…', overlay:true, overlayText:'Menyimpan Materi…' }
+  ));
+  $('#btn-m-reset')?.addEventListener('click', ()=>{ try{ resetMateriForm(); $('#materi-info').textContent=''; }catch(e){} });
 
-    $('#btn-m-reset').addEventListener('click', ()=> Busy.wrap(
-    $('#btn-m-reset'),
-    async()=>{ resetMateriForm(); $('#materi-info').textContent='-'; },
-    { text:'Reset…' }
-    ));
-
-  // camera toggle peserta
-  const btnPesertaRotate = $('#btn-cam-rotate');
-  if (btnPesertaRotate){
-    btnPesertaRotate.addEventListener('click', ()=> toggleCamera('peserta'));
-  }
-
+  // expose (dipakai di beberapa tempat lain)
+  window.adminSwitchTab = adminSwitchTab;
 }
 
 /* =========================

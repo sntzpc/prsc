@@ -307,14 +307,14 @@ function gfRenderAdminTable(){
   if (!tb || !info) return;
 
   const act = gfActivePoints().length;
-  info.innerHTML = `Titik tersimpan (local): <b>${GEOF.points.length}</b> • Aktif: <b>${act}</b>`;
+  info.innerHTML = `Titik tersimpan (local): <b>${(GEOF.points||[]).length}</b> • Aktif: <b>${act}</b>`;
 
-  if (!GEOF.points.length){
+  if (!GEOF.points || !GEOF.points.length){
     tb.innerHTML = `<tr><td colspan="6" class="mini">Belum ada titik. (Saat ini masih pakai Default Server)</td></tr>`;
     return;
   }
 
-  tb.innerHTML = GEOF.points.map(p=>`
+  tb.innerHTML = (GEOF.points || []).map(p=>`
     <tr>
       <td><b>${escapeHtml(p.name)}</b><div class="mini">${escapeHtml(p.id)}</div></td>
       <td>${escapeHtml(String(p.lat))}</td>
@@ -329,158 +329,157 @@ function gfRenderAdminTable(){
       </td>
     </tr>
   `).join('');
+}
 
-  // bind actions
-  tb.querySelectorAll('[data-gf-toggle]').forEach(b=>{
-    b.addEventListener('click', async()=>{
-      try{
+function gfBindAdminUIOnce(){
+  // bind hanya sekali per elemen container, bukan per State
+  const box = gfEnsureAdminUI();
+  if (!box) return;
+
+  if (box.dataset.bound === '1') {
+    // tetap refresh table kalau sudah pernah bound
+    gfLoadFromLS();
+    gfRenderAdminTable();
+    return;
+  }
+  box.dataset.bound = '1';
+
+  // render awal
+  gfLoadFromLS();
+  gfRenderAdminTable();
+
+  // ✅ EVENT DELEGATION: semua klik ditangani di sini
+  box.addEventListener('click', async (ev)=>{
+    const t = ev.target;
+    if (!(t instanceof HTMLElement)) return;
+
+    // helper cari tombol terdekat (jaga-jaga klik icon/span)
+    const btn = t.closest('button');
+    if (!btn) return;
+
+    const id = btn.id;
+
+    try{
+      // ====== TAMBAH TITIK ======
+      if (id === 'gf_add'){
+        if (!isAdminSessionValid()){
+          UI.setAdminResult('Admin belum login / sesi habis. Login ulang.', false);
+          return;
+        }
+
+        const name = (document.getElementById('gf_name')?.value || '').trim() || 'Titik';
+        const lat  = Number(document.getElementById('gf_lat')?.value);
+        const lng  = Number(document.getElementById('gf_lng')?.value);
+        const rad  = Number(document.getElementById('gf_rad')?.value || 50);
+        const active = (document.getElementById('gf_active')?.value || 'TRUE') === 'TRUE';
+
+        if (!isFinite(lat) || !isFinite(lng) || !isFinite(rad) || rad <= 0){
+          UI.setAdminResult('Lat/Lng/Radius tidak valid.', false);
+          return;
+        }
+
+        const p = { id: gfUid(), name, lat, lng, radius_m: rad, active, sort: 0 };
+
+        await gfServerUpsert(p);
+        await gfPullFromServerToLocal();      // ini sudah termasuk gfRenderAdminTable()
+
+        UI.setAdminResult(`✅ Titik disimpan ke server: ${name}`, true);
+        try{ smartStatusUpdate(true); }catch(e){}
+        return;
+      }
+
+      // ====== GUNAKAN LOKASI SAAT INI ======
+      if (id === 'gf_use_current'){
+        const pos = await getLocation({ maximumAge: 0 });
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        const latEl = document.getElementById('gf_lat');
+        const lngEl = document.getElementById('gf_lng');
+        if (latEl) latEl.value = String(lat);
+        if (lngEl) lngEl.value = String(lng);
+
+        UI.setAdminResult('Lokasi saat ini disalin ke input Lat/Lng.', true);
+        return;
+      }
+
+      // ====== HAPUS SEMUA LOCAL ======
+      if (id === 'gf_clear'){
+        if (!confirm('Hapus semua titik geofence lokal? (akan kembali pakai Default Server)')) return;
+        GEOF.points = [];
+        gfSaveToLS();
+        gfRenderAdminTable();
+        UI.setAdminResult('Semua titik geofence lokal dihapus.', true);
+        try{ smartStatusUpdate(true); }catch(e){}
+        return;
+      }
+
+      // ====== REFRESH LOCAL LIST ======
+      if (id === 'gf_refresh'){
+        gfLoadFromLS();
+        gfRenderAdminTable();
+        UI.setAdminResult('List geofence lokal direfresh.', true);
+        return;
+      }
+
+      // ====== TOGGLE / DELETE DARI TABLE ======
+      const togId = btn.getAttribute('data-gf-toggle');
+      if (togId){
         if (!isAdminSessionValid()){
           UI.setAdminResult('Sesi admin habis. Login ulang.', false);
           return;
         }
-
-        const id = b.getAttribute('data-gf-toggle');
-        const it = GEOF.points.find(x => x.id === id);
+        const it = (GEOF.points || []).find(x => x.id === togId);
         if (!it) return;
 
         it.active = !it.active;
-
-        // ✅ upsert ke server
         await gfServerUpsert(it);
-
-        // ✅ pull ulang biar konsisten
         await gfPullFromServerToLocal();
 
         UI.setAdminResult(`✅ Status diubah: ${it.name} = ${it.active ? 'AKTIF' : 'OFF'}`, true);
         try{ smartStatusUpdate(true); }catch(e){}
-      }catch(e){
-        if (handleAdminAuthError_(e)) return;
-        UI.setAdminResult(String(e.message || e), false);
+        return;
       }
-    });
-  });
 
-  tb.querySelectorAll('[data-gf-del]').forEach(b=>{
-    b.addEventListener('click', async()=>{
-      try{
+      const delId = btn.getAttribute('data-gf-del');
+      if (delId){
         if (!isAdminSessionValid()){
           UI.setAdminResult('Sesi admin habis. Login ulang.', false);
           return;
         }
-
-        const id = b.getAttribute('data-gf-del');
-        const it = GEOF.points.find(x => x.id === id);
+        const it = (GEOF.points || []).find(x => x.id === delId);
         if (!it) return;
 
         if (!confirm(`Hapus titik "${it.name}"? (akan terhapus di server)`)) return;
 
-        // ✅ hapus di server
-        await gfServerDelete(id);
-
-        // ✅ pull ulang dari server
+        await gfServerDelete(delId);
         await gfPullFromServerToLocal();
 
         UI.setAdminResult(`✅ Terhapus di server: ${it.name}`, true);
         try{ smartStatusUpdate(true); }catch(e){}
-      }catch(e){
-        if (handleAdminAuthError_(e)) return;
-        UI.setAdminResult(String(e.message || e), false);
-      }
-    });
-  });
-    document.getElementById('gf_pull_server')?.addEventListener('click', ()=> Busy.wrap(
-    document.getElementById('gf_pull_server'),
-    async()=>{
-      await gfPullFromServerToLocal();
-      UI.setAdminResult('✅ Geofence ditarik dari server.', true);
-    },
-    { text:'Tarik…', overlay:true, overlayText:'Mengambil daftar geofence dari server…' }
-  ));
-
-  document.getElementById('gf_push_server')?.addEventListener('click', ()=> Busy.wrap(
-    document.getElementById('gf_push_server'),
-    async()=>{
-      await gfPushAllLocalToServer();
-      UI.setAdminResult('✅ Semua titik lokal dikirim ke server.', true);
-    },
-    { text:'Kirim…', overlay:true, overlayText:'Mengirim semua titik geofence ke server…' }
-  ));
-}
-
-function gfBindAdminUIOnce(){
-  if (State._gfUiBound) return;
-  State._gfUiBound = true;
-
-  gfEnsureAdminUI();
-  gfRenderAdminTable();
-
-    document.getElementById('gf_add')?.addEventListener('click', async()=>{
-    try{
-      if (!isAdminSessionValid()){
-        UI.setAdminResult('Admin belum login / sesi habis. Login ulang.', false);
         return;
       }
 
-      const name = (document.getElementById('gf_name')?.value || '').trim() || 'Titik';
-      const lat  = Number(document.getElementById('gf_lat')?.value);
-      const lng  = Number(document.getElementById('gf_lng')?.value);
-      const rad  = Number(document.getElementById('gf_rad')?.value || 50);
-      const active = (document.getElementById('gf_active')?.value || 'TRUE') === 'TRUE';
-
-      if (!isFinite(lat) || !isFinite(lng) || !isFinite(rad) || rad <= 0){
-        UI.setAdminResult('Lat/Lng/Radius tidak valid.', false);
-        return;
-      }
-
-      // buat point (id stabil)
-      const p = { id: gfUid(), name, lat, lng, radius_m: rad, active, sort: 0 };
-
-      // ✅ simpan ke server
-      await gfServerUpsert(p);
-
-      // ✅ pull ulang dari server supaya semua rapi & konsisten
-      await gfPullFromServerToLocal();
-
-      UI.setAdminResult(`✅ Titik disimpan ke server: ${name}`, true);
-      try{ smartStatusUpdate(true); }catch(e){}
     }catch(e){
       if (handleAdminAuthError_(e)) return;
-      UI.setAdminResult(String(e.message || e), false);
+      UI.setAdminResult(String(e?.message || e), false);
     }
   });
+}
 
-  document.getElementById('gf_use_current')?.addEventListener('click', async()=>{
-    try{
-      // ambil GPS terbaru, tapi jangan mengganggu alur utama
-      const pos = await getLocation({ maximumAge: 0 });
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
+async function gfMountAdminGeofence(){
+  gfEnsureAdminTabPane();
+  gfBindAdminUIOnce();
 
-      const latEl = document.getElementById('gf_lat');
-      const lngEl = document.getElementById('gf_lng');
-      if (latEl) latEl.value = String(lat);
-      if (lngEl) lngEl.value = String(lng);
-
-      UI.setAdminResult('Lokasi saat ini disalin ke input Lat/Lng.', true);
-    }catch(e){
-      UI.setAdminResult(String(e.message || e), false);
+  // opsional: auto tarik dari server saat tab dibuka
+  try{
+    if (isAdminSessionValid()){
+      await gfPullFromServerToLocal();
     }
-  });
-
-  document.getElementById('gf_clear')?.addEventListener('click', ()=>{
-    if (!confirm('Hapus semua titik geofence lokal? (akan kembali pakai Default Server)')) return;
-    GEOF.points = [];
-    gfSaveToLS();
-    gfRenderAdminTable();
-    UI.setAdminResult('Semua titik geofence lokal dihapus.', true);
-    try{ smartStatusUpdate(true); }catch(e){}
-  });
-
-  document.getElementById('gf_refresh')?.addEventListener('click', ()=>{
-    gfLoadFromLS();
-    gfRenderAdminTable();
-    UI.setAdminResult('List geofence lokal direfresh.', true);
-  });
+  }catch(e){
+    // jangan bikin UI mati kalau server error
+    try{ UI.setAdminResult(String(e?.message || e), false); }catch{}
+  }
 }
 
 /**
