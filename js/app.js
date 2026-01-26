@@ -664,9 +664,100 @@ async function initDashboardMeta(){
     // ✅ dashboard GATE tetap pakai group global (opsional)
     fillSelect($('#g_group'), meta.groups || [], '(opsional)');
 
+    // ✅ Autocomplete NIK (Mode: Per Peserta)
+    initGateNikAutocomplete(meta);
+
+
+    // ✅ Tampilkan/sembunyikan field NIK sesuai Mode Laporan
+    try{ initGatePersonWrap(); }catch(e){}
   } catch(e){
     UI.setAdminResult(String(e.message || e), false);
   }
+}
+
+
+// Tampilkan/sembunyikan field NIK di Dashboard Mobilitas sesuai Mode Laporan
+function initGatePersonWrap(){
+  const sel = $('#g_view');
+  const wrap = $('#g_person_wrap');
+  if (!sel || !wrap) return;
+  const refresh = ()=>{
+    wrap.style.display = (String(sel.value) === 'person') ? 'grid' : 'none';
+  };
+  sel.addEventListener('change', refresh);
+  refresh();
+}
+
+function initGateNikAutocomplete(meta){
+  const input = $('#g_nik');
+  const dl = $('#dl_g_nik');
+  const hint = $('#g_nik_hint');
+  const groupSel = $('#g_group');
+  if (!input || !dl) return;
+
+  const peserta = Array.isArray(meta?.peserta_small) ? meta.peserta_small : [];
+  // simpan utk rebuild/filter
+  window.__gatePesertaSmall = peserta;
+
+  const esc = (s)=> String(s??'').replace(/[&<>"']/g, m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'
+  }[m]));
+
+  function normalizeNikFromInput(v){
+    const s = String(v||'').trim();
+    // kalau user memilih "2016xxxx — Nama ..." ambil token awal digit
+    const m = s.match(/^(\d{4,})/);
+    return m ? m[1] : s;
+  }
+
+  function renderHintByNik(nik){
+    if (!hint) return;
+    if (!nik){ hint.textContent = ''; return; }
+    const hit = peserta.find(p => String(p.nik) === String(nik));
+    if (!hit){ hint.textContent = 'NIK tidak ditemukan di daftar (boleh lanjut jika data ada di server).'; return; }
+    const parts = [hit.nama, hit.group, hit.unit, hit.region].filter(Boolean);
+    hint.textContent = parts.join(' • ');
+  }
+
+  function rebuildDatalist(filterGroup){
+    const g = String(filterGroup || '').trim();
+    let list = peserta;
+    if (g) list = peserta.filter(p => String(p.group||'') === g);
+
+    // lindungi UI jika daftar sangat besar
+    const CAP = 2000;
+    if (list.length > CAP) list = list.slice(0, CAP);
+
+    dl.innerHTML = list.map(p=>{
+      const label = [p.nik, p.nama, p.group, p.unit].filter(Boolean).join(' — ');
+      // value tetap NIK (agar input langsung valid)
+      return `<option value="${esc(p.nik)}">${esc(label)}</option>`;
+    }).join('');
+  }
+
+  // initial
+  rebuildDatalist(groupSel?.value || '');
+  renderHintByNik(normalizeNikFromInput(input.value));
+
+  // events
+  input.addEventListener('input', ()=>{
+    const nik = normalizeNikFromInput(input.value);
+    // jika user menempel label panjang, auto-normalize setelah jeda
+    if (nik && nik !== input.value && /^\d{4,}$/.test(nik)){
+      // jangan terlalu agresif saat user masih mengetik
+    }
+    renderHintByNik(nik);
+  });
+  input.addEventListener('blur', ()=>{
+    const nik = normalizeNikFromInput(input.value);
+    if (nik && nik !== input.value) input.value = nik;
+    renderHintByNik(nik);
+  });
+
+  groupSel?.addEventListener('change', ()=>{
+    rebuildDatalist(groupSel.value || '');
+    renderHintByNik(normalizeNikFromInput(input.value));
+  });
 }
 
 function dashTodayDefaults(){
@@ -729,11 +820,30 @@ function renderGateTable(view, rows){
 }
 
 async function adminPreviewTraining(){
-  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  if (!isAdminSessionValid()){
+    UI.setAdminResult('Sesi admin habis. Login ulang.', false);
+    const sum = $('#d_summary');
+    if (sum) sum.textContent = 'Sesi admin habis. Login ulang.';
+    return;
+  }
 
   const date = ($('#d_date').value || '').trim();
+
+  if (!date){
+    const sum = $('#d_summary');
+    if (sum) sum.textContent = 'Tanggal wajib diisi.';
+    try{ $('#d_date')?.focus(); }catch(e){}
+    return;
+  }
   const group = ($('#d_group').value || '').trim();
   const training_type = ($('#d_training_type').value || '').trim();
+
+  if (!training_type){
+    const sum = $('#d_summary');
+    if (sum) sum.textContent = 'Training Type wajib dipilih.';
+    try{ $('#d_training_type')?.focus(); }catch(e){}
+    return;
+  }
   const activity = ($('#d_activity').value || '').trim();
   const material = ($('#d_material').value || '').trim();
   const location = ($('#d_location').value || 'Seriang Training Center').trim();
@@ -756,20 +866,38 @@ async function adminPreviewTraining(){
 }
 
 async function adminPreviewGate(){
-  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  if (!isAdminSessionValid()){
+    UI.setAdminResult('Sesi admin habis. Login ulang.', false);
+    const sum = $('#g_summary');
+    if (sum) sum.textContent = 'Sesi admin habis. Login ulang.';
+    return;
+  }
 
   const start = ($('#g_start').value || '').trim();
   const end = ($('#g_end').value || '').trim();
-  const view = ($('#g_view').value || 'daily').trim();
+  let view = ($('#g_view').value || 'daily').trim();
   const gate_reason = ($('#g_reason').value || '').trim();
   const nik = ($('#g_nik').value || '').trim();
   const group = ($('#g_group').value || '').trim();
 
-  if (!start || !end) throw new Error('Tanggal Mulai & Akhir wajib diisi.');
-
-  if (view === 'person' && !nik){
-    throw new Error('Mode "Per Peserta" membutuhkan NIK.');
+  if (!start || !end){
+    const sum = $('#g_summary');
+    if (sum) sum.textContent = 'Tanggal Mulai & Akhir wajib diisi.';
+    try{ (!start ? $('#g_start') : $('#g_end'))?.focus(); }catch(e){}
+    return;
   }
+  // UX guard:
+// Mode "Per Peserta" membutuhkan NIK.
+// Daripada melempar error (yang jadi "Uncaught (in promise) ..."), kita tampilkan pesan + fokus ke field NIK.
+if (view === 'person' && !nik){
+  const wrap = document.getElementById('g_person_wrap');
+  if (wrap) wrap.style.display = 'grid';
+  const sum = document.getElementById('g_summary');
+  if (sum) sum.textContent = 'Mode "Per Peserta" membutuhkan NIK. Silakan isi NIK terlebih dahulu.';
+  const input = document.getElementById('g_nik');
+  try{ input?.focus(); }catch(e){}
+  return;
+}
 
   const r = await api('adminGateReport', {
     admin_token: State.adminToken,
@@ -781,6 +909,42 @@ async function adminPreviewGate(){
   $('#g_summary').textContent = r.summary_text || `Rows: ${(r.rows||[]).length}`;
   renderGateTable(view, r.rows || []);
 }
+
+// =========================
+// Compat aliases (dashboard buttons) 
+// Setelah refactor: fungsi lama dipanggil dashPreview/dashExport...,
+// sedangkan implementasi barunya bernama adminPreviewTraining/adminPreviewGate/adminExportDashboard.
+// Aliases ini mencegah error: "dashPreview is not defined".
+// =========================
+async function dashPreview(){
+  return await adminPreviewTraining();
+}
+async function dashExportXlsx(){
+  return await adminExportDashboard('xlsx', 'training');
+}
+async function dashExportPdf(){
+  return await adminExportDashboard('pdf', 'training');
+}
+async function gatePreview(){
+  return await adminPreviewGate();
+}
+async function gateExportXlsx(){
+  return await adminExportDashboard('xlsx', 'gate');
+}
+async function gateExportPdf(){
+  return await adminExportDashboard('pdf', 'gate');
+}
+
+// Expose aliases to window (extra safety untuk variasi load script)
+try{
+  window.dashPreview = dashPreview;
+  window.dashExportXlsx = dashExportXlsx;
+  window.dashExportPdf = dashExportPdf;
+  window.gatePreview = gatePreview;
+  window.gateExportXlsx = gateExportXlsx;
+  window.gateExportPdf = gateExportPdf;
+}catch(e){}
+
 
 async function adminExportDashboard(fmt, reportType){
   if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
@@ -822,6 +986,85 @@ function bindGateViewToggle(){
   };
   sel.addEventListener('change', refresh);
   refresh();
+}
+
+/* =========================
+   Autocomplete NIK (Gate dashboard)
+   - Sumber: adminPesertaMeta().peserta_small
+   - UI: <input list="dl_g_nik"> + hint nama
+   ========================= */
+function initGateNikAutocomplete(meta){
+  try{
+    const inp = $('#g_nik');
+    const dl  = $('#dl_g_nik');
+    const hint= $('#g_nik_hint');
+    const selGroup = $('#g_group');
+    if (!inp || !dl) return;
+
+    const all = Array.isArray(meta?.peserta_small) ? meta.peserta_small : [];
+    // simpan untuk rebuild
+    window.__gatePesertaSmall = all;
+
+    const normalizeNik = (v)=>{
+      const s = String(v||'').trim();
+      const m = s.match(/(\d{4,})/); // ambil angka pertama (minimal 4 digit)
+      return m ? m[1] : '';
+    };
+
+    const render = (groupFilter)=>{
+      const list = window.__gatePesertaSmall || [];
+      const filtered = groupFilter
+        ? list.filter(p=> String(p.group||'').trim() === groupFilter)
+        : list;
+
+      // batasi opsi agar tidak terlalu berat untuk browser mobile
+      const MAX = 1200;
+      const rows = filtered.slice(0, MAX);
+      dl.innerHTML = rows.map(p=>{
+        const nik = String(p.nik||'').trim();
+        const nama = String(p.nama||'').trim();
+        const grp = String(p.group||'').trim();
+        const unit = String(p.unit||'').trim();
+        const label = [nama, grp, unit].filter(Boolean).join(' • ');
+        // value = nik, text = label (Chrome akan menampilkan salah satu/dua-duanya)
+        return `<option value="${escapeHtml(nik)}">${escapeHtml(label)}</option>`;
+      }).join('');
+    };
+
+    const updateHint = ()=>{
+      const nik = normalizeNik(inp.value);
+      if (!nik){ if (hint) hint.textContent = ''; return; }
+      // pastikan input hanya nik bila user memilih format lain
+      inp.value = nik;
+      const list = window.__gatePesertaSmall || [];
+      const p = list.find(x=> String(x.nik||'').trim() === nik);
+      if (hint){
+        hint.textContent = p
+          ? `Terpilih: ${p.nama || '-'}${p.group?` • ${p.group}`:''}${p.unit?` • ${p.unit}`:''}`
+          : 'NIK tidak ditemukan di master peserta.';
+      }
+    };
+
+    // initial render (semua)
+    render('');
+
+    // bila group dipilih, sempitkan suggestion (lebih enak untuk mencari)
+    selGroup?.addEventListener('change', ()=>{
+      const g = (selGroup.value||'').trim();
+      render(g);
+      // tidak menghapus nik yang sudah dipilih, hanya mengubah suggestion
+      updateHint();
+    });
+
+    // saat user mengetik / memilih
+    inp.addEventListener('change', updateHint);
+    inp.addEventListener('blur', updateHint);
+    inp.addEventListener('input', ()=>{ if (hint) hint.textContent=''; });
+
+  }catch(e){
+    // non-fatal
+    console.warn('initGateNikAutocomplete failed:', e);
+  }
 }
 
 async function main(){

@@ -352,7 +352,9 @@
                 <div class="grid2 mt" id="g_person_wrap" style="display:none;">
                 <div>
                     <label>NIK (wajib jika Per Peserta)</label>
-                    <input id="g_nik" type="text" placeholder="Masukkan NIK…"/>
+                    <input id="g_nik" type="text" placeholder="Ketik NIK atau nama…" list="dl_g_nik" autocomplete="off"/>
+                    <datalist id="dl_g_nik"></datalist>
+                    <div class="small" id="g_nik_hint" style="margin-top:6px;opacity:.85"></div>
                 </div>
                 <div>
                     <label>Batch / Group (opsional)</label>

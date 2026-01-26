@@ -6,6 +6,7 @@ const SHEET_SETTINGS  = 'settings';
 const SHEET_TRAINING_META = 'training_meta';
 const SHEET_MATERIALS = 'materials';
 const SHEET_GEOFENCE_POINTS = 'geofence_points';
+const SHEET_ID = '18JkzFJHC6q1mfSzeyErH96dhBWMVQJDw4Fd6Oj8lgqQ';
 
 // Ganti dengan Folder ID Google Drive Anda
 const FACES_FOLDER_ID = '1Z42pzuNuw5ZNoE7EovI1Ifrf3ppzJmiS';
@@ -1353,6 +1354,31 @@ function adminPesertaMeta_(body){
 
   const list = readPeserta_();
 
+  // ✅ peserta_small untuk autocomplete NIK (dashboard mobilitas)
+  // Ringkas agar payload tetap ringan.
+  // Format: [{nik,nama,group,unit,region}]
+  const pesertaSmall = (function(){
+    const out = [];
+    const seen = {};
+    for (let i=0; i<list.length; i++){
+      const p = list[i] || {};
+      const nik = String(p.nik || '').trim();
+      if (!nik) continue;
+      if (seen[nik]) continue;
+      seen[nik] = true;
+      out.push({
+        nik: nik,
+        nama: String(p.nama || p.name || '').trim(),
+        group: String(p.group || '').trim(),
+        unit: String(p.unit || '').trim(),
+        region: String(p.region || '').trim()
+      });
+    }
+    // sort by nik
+    out.sort((a,b)=> (a.nik>b.nik?1:(a.nik<b.nik?-1:0)));
+    return out;
+  })();
+
   // TRAINING TYPE dari sheet peserta: jenis_pelatihan
   const trainingTypes = uniqSorted_(list.map(x=>x.jenis_pelatihan));
   const groupsAll = uniqSorted_(list.map(x=>x.group));
@@ -1422,7 +1448,10 @@ function adminPesertaMeta_(body){
     groups_by_training_type: groupsByType,
     activities_by_training_type: activitiesByType,
     materials_by_type_activity: materialsByTypeAct,
-    materials_all: materialsAll
+    materials_all: materialsAll,
+
+    // ✅ untuk UI autocomplete NIK
+    peserta_small: pesertaSmall
   };
 }
 
