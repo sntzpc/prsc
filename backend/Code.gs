@@ -108,6 +108,11 @@ function handleApi_(body){
   if (action === 'adminGeofenceUpsert') return json_(adminGeofenceUpsert_(body));
   if (action === 'adminGeofenceDelete') return json_(adminGeofenceDelete_(body));
 
+  // ✅ Public (tanpa autentikasi)
+  if (action === 'geofence.list') return json_(geofenceList_(body));
+  if (action === 'live.ping')     return json_(livePing_(body));
+  if (action === 'live.list')     return json_(liveList_(body));
+
   return json_({ ok:false, error:'Unknown action: ' + action });
 }
 
@@ -218,6 +223,11 @@ function doPost(e) {
     if (action === 'adminGeofenceList')   return json_(adminGeofenceList_(body));
     if (action === 'adminGeofenceUpsert') return json_(adminGeofenceUpsert_(body));
     if (action === 'adminGeofenceDelete') return json_(adminGeofenceDelete_(body));
+
+  // ✅ Public (tanpa autentikasi)
+  if (action === 'geofence.list') return json_(geofenceList_(body));
+  if (action === 'live.ping')     return json_(livePing_(body));
+  if (action === 'live.list')     return json_(liveList_(body));
 
     return json_({ ok:false, error:'Unknown action: ' + action });
   } catch (err) {
@@ -2717,3 +2727,100 @@ function adminNameTagSaveEvent_(payload){
   return { ok:true, message:'Saved' };
 }
 
+
+
+/* =========================================================
+   ✅ Public API: Multi Geofence + Live Map
+   - geofence.list : ambil daftar geofence aktif (public)
+   - live.ping     : kirim lokasi device (public)
+   - live.list     : ambil lokasi device terbaru (public)
+   ========================================================= */
+
+function geofenceList_(body){
+  const items = readGeofencePoints_({ includeInactive:false });
+  return { ok:true, items };
+}
+
+function getLiveLocationsSheet_(){
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sh = ss.getSheetByName('live_locations');
+  if (!sh){
+    sh = ss.insertSheet('live_locations');
+    sh.appendRow(['device_id','name','lat','lng','accuracy_m','updated_at','ua']);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function livePing_(body){
+  // body: {device_id, name, lat, lng, accuracy_m, ua}
+  const deviceId = String(body.device_id || '').trim();
+  if (!deviceId) return { ok:false, error:'device_id wajib.' };
+
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  const acc = Number(body.accuracy_m || 0);
+  if (!isFinite(lat) || !isFinite(lng)) return { ok:false, error:'lat/lng tidak valid.' };
+
+  const name = String(body.name || '').trim();
+  const ua = String(body.ua || '').trim().slice(0,180);
+  const now = new Date();
+
+  const sh = getLiveLocationsSheet_();
+  const values = sh.getDataRange().getValues();
+  const header = values[0].map(h=>String(h||'').trim().toLowerCase());
+  const idx = (k)=> header.indexOf(k);
+
+  let rowIndex = -1;
+  for (let i=1; i<values.length; i++){
+    const id = String(values[i][idx('device_id')] || '').trim();
+    if (id === deviceId){ rowIndex = i+1; break; } // 1-based
+  }
+
+  const row = [deviceId, name, lat, lng, acc, now.toISOString(), ua];
+  if (rowIndex > 0){
+    sh.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+  }else{
+    sh.appendRow(row);
+  }
+
+  return { ok:true };
+}
+
+function liveList_(body){
+  // optional: max_age_min (default 180)
+  const maxAgeMin = Number(body.max_age_min || 180);
+  const maxAgeMs = (isFinite(maxAgeMin) && maxAgeMin > 0) ? (maxAgeMin * 60 * 1000) : (180 * 60 * 1000);
+  const now = Date.now();
+
+  const sh = getLiveLocationsSheet_();
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return { ok:true, items: [] };
+
+  const header = values[0].map(h=>String(h||'').trim().toLowerCase());
+  const idx = (k)=> header.indexOf(k);
+
+  const out = values.slice(1)
+    .filter(r => String(r[idx('device_id')]||'').trim())
+    .map(r => ({
+      device_id: String(r[idx('device_id')]||'').trim(),
+      name: String(r[idx('name')]||'').trim(),
+      lat: Number(r[idx('lat')]),
+      lng: Number(r[idx('lng')]),
+      accuracy_m: Number(r[idx('accuracy_m')]||0),
+      updated_at: String(r[idx('updated_at')]||'').trim(),
+      ua: String(r[idx('ua')]||'').trim()
+    }))
+    .filter(o => isFinite(o.lat) && isFinite(o.lng))
+    .filter(o => {
+      if (!o.updated_at) return true;
+      const t = Date.parse(o.updated_at);
+      if (!isFinite(t)) return true;
+      return (now - t) <= maxAgeMs;
+    });
+
+  // sort terbaru
+  out.sort((a,b)=> (Date.parse(b.updated_at||0) - Date.parse(a.updated_at||0)));
+
+  return { ok:true, items: out };
+}

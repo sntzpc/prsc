@@ -1631,3 +1631,94 @@ body.dark .warnbox .tag, .dark .warnbox .tag{
     padding: 12px;
   }
 }
+
+/* ===== Action bar (Lokasi + tombol) ===== */
+.action-bar{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap; /* desktop boleh wrap */
+}
+
+/* Pill agar tidak kependekan */
+#loc-status{
+  flex: 1 1 auto;
+  min-width: 220px;
+}
+
+/* Tombol-tombol */
+.action-buttons{
+  display: flex;
+  gap: 10px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+/* Live map icon button */
+.livemap-icon{
+  width: 44px;
+  min-width: 44px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  position: relative;
+}
+
+/* Tooltip hover (desktop) */
+.livemap-icon::after{
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15,23,42,.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.livemap-icon:hover::after{ opacity: 1; }
+
+/* ===== Mobile layout ===== */
+@media (max-width: 480px){
+  .action-bar{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  /* pill full width */
+  #loc-status{
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* tombol 2 kolom rapi */
+  .action-buttons{
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 56px; /* tombol utama + icon */
+    gap: 10px;
+  }
+
+  /* tombol cek lokasi full lebar */
+  #btn-checkloc{
+    width: 100%;
+  }
+
+  /* icon tetap proporsional */
+  .livemap-icon{
+    width: 56px;
+    height: 44px;
+    min-width: 56px;
+    justify-self: end;
+  }
+}
