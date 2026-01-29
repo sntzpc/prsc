@@ -1,8 +1,14 @@
-// SECTION: Core Location
-// Purpose : Load config, request geolocation, compute distance, update location UI pill,
-//          and decide nearest/inside geofence (multi lokasi + fallback default server).
-// Depends : js/core/base.js (State, UI, $), js/core/api.js (api), js/core/geofence_core.js.
-// Provides: loadConfig(), getLocation(), haversineM(), updateLocPill(), checkLocation().
+let __gfWarmPromise = null;
+
+function gfWarmupOnce({ force = false, maxAgeMs = 6*60*60*1000 } = {}){
+  if (!window.gfEnsureFreshFromServer) return Promise.resolve({ ok:false, source:'no_geofence_core' });
+
+  if (force || !__gfWarmPromise){
+    __gfWarmPromise = window.gfEnsureFreshFromServer({ maxAgeMs })
+      .catch(err => ({ ok:false, source:'warmup_error', error: String(err?.message || err) }));
+  }
+  return __gfWarmPromise;
+}
 
 async function loadConfig(force=false){
   if (!force && State.cfg && State.cfg.ok) return;
@@ -120,8 +126,10 @@ async function checkLocation({ force=false, silent=false, maxAgeMs=45000 } = {})
     State.loc.accuracy_m = acc;
 
     // 1) pastikan punya multi-lokasi (auto pull)
-    const ensured = await gfEnsureFreshFromServer({ maxAgeMs: 6*60*60*1000 }); // refresh per 6 jam
-    const actives = ensured?.points || gfActivePoints();
+    const ensured = await gfWarmupOnce({ force: !!force, maxAgeMs: force ? 0 : 6*60*60*1000 });
+    const actives = (ensured && Array.isArray(ensured.points) && ensured.points.length)
+      ? ensured.points
+      : (window.gfActivePoints ? window.gfActivePoints() : []);
 
     // 2) hitung nearest
     let nearest = null;

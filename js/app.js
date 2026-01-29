@@ -1079,6 +1079,17 @@ async function main(){
     $('#device-info').innerHTML = `Device ID: <b>${escapeHtml(State.deviceId)}</b>`;
 
     gfLoadFromLS();
+
+    try{
+      setTimeout(() => {
+        try{
+          if (window.gfEnsureFreshFromServer){
+            window.gfEnsureFreshFromServer({ maxAgeMs: 6*60*60*1000 }).catch(()=>{});
+          }
+        }catch(e){}
+      }, 150);
+    }catch(e){}
+
     initMode();
     initTraining();
     initAdminModal();
@@ -1088,6 +1099,9 @@ async function main(){
       $('#btn-checkloc'),
       async()=>{
         try{
+          if (window.gfEnsureFreshFromServer){
+            await window.gfEnsureFreshFromServer({ maxAgeMs: 6*60*60*1000 });
+          }
           await checkLocation({ force:true, silent:false });
           updatePresensiReadyMessage();
         } catch(e){
@@ -1109,6 +1123,9 @@ async function main(){
     // ✅ AUTO cek lokasi saat aplikasi load/refresh
     updateLocPill();
     try{
+      if (window.gfEnsureFreshFromServer){
+        await window.gfEnsureFreshFromServer({ maxAgeMs: 6*60*60*1000 });
+      }
       await checkLocation({ force:false, silent:true, maxAgeMs:45000 });
       updatePresensiReadyMessage();
     } catch(e){
