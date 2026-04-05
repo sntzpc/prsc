@@ -96,7 +96,9 @@ async function adminExportCsv(){
 async function adminLoadReconcile(){
   try{
     if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
-    const r = await api('adminReconcileList', { admin_token: State.adminToken });
+    const filterEl = document.getElementById('reconcile-filter-status');
+    const filterStatus = String(filterEl?.value || 'PENDING').toUpperCase();
+    const r = await api('adminReconcileList', { admin_token: State.adminToken, status: filterStatus });
     if (!r.ok) throw new Error(r.error || 'Gagal memuat rekonsil');
 
     const rows = Array.isArray(r.rows) ? r.rows : [];
@@ -104,8 +106,8 @@ async function adminLoadReconcile(){
     const sum = document.getElementById('reconcile-summary');
     if (!tbody || !sum) return;
 
-    const pending = rows.filter(x => String(x.status||'').toUpperCase() === 'PENDING').length;
-    sum.textContent = `Total permohonan: ${rows.length} | Pending: ${pending}`;
+    const filterLabel = filterStatus === 'ALL' ? 'Semua' : filterStatus;
+    sum.textContent = `Menampilkan: ${filterLabel} | Total tampil: ${rows.length}`;
 
     tbody.innerHTML = rows.map(x => {
       const statusReq = String(x.status || '');
@@ -130,6 +132,10 @@ async function adminLoadReconcile(){
       `;
     }).join('');
 
+    if (!rows.length){
+      tbody.innerHTML = '<tr><td colspan="8" class="small muted">Tidak ada data rekonsil untuk filter ini.</td></tr>';
+    }
+
     if (!tbody.dataset.bound){
       tbody.dataset.bound = '1';
       tbody.addEventListener('click', async (e)=>{
@@ -148,6 +154,16 @@ async function adminLoadReconcile(){
         } catch(err){
           alert(String(err.message || err));
         }
+      });
+    }
+
+    if (filterEl && !filterEl.dataset.bound){
+      filterEl.dataset.bound = '1';
+      filterEl.addEventListener('change', ()=>{
+        adminLoadReconcile().catch(err => {
+          const sum = document.getElementById('reconcile-summary');
+          if (sum) sum.textContent = String(err.message || err);
+        });
       });
     }
   }catch(e){

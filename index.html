@@ -324,6 +324,15 @@
             <div class="box" id="reconcile-admin-box">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
                 <div style="font-weight:900;">Rekonsil Presensi</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <label class="small" for="reconcile-filter-status" style="font-weight:700;">Filter Status</label>
+                  <select id="reconcile-filter-status" class="input" style="min-width:160px;max-width:220px;">
+                    <option value="PENDING" selected>Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="ALL">Semua</option>
+                  </select>
+                </div>
                 <div class="actions" style="margin:0;">
                   <button class="btn" id="btn-reconcile-refresh" type="button">Refresh Rekonsil</button>
                   <button class="btn danger" id="btn-delete-failed-att" type="button">Hapus Data Gagal Attendance</button>

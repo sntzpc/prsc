@@ -486,20 +486,34 @@ function submitReconcile_(body){
   const idxMode = header.indexOf('mode');
   const idxStatus = header.indexOf('status');
   const idxRequestedAt = header.indexOf('requested_at');
+  const idxGateDirection = header.indexOf('gate_direction');
 
   const now = new Date();
   const tz = Session.getScriptTimeZone();
   const todayKey = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
-  const mode = String(body.mode || 'training');
+  const mode = String(body.mode || 'training').trim().toLowerCase();
+  const gateDirection = String(body.gate_direction || '').trim().toUpperCase();
 
   for (let i=0;i<rows.length;i++){
     const r = rows[i];
     const st = String(r[idxStatus] || '').trim().toUpperCase();
+    if (!(st === 'PENDING' || st === 'APPROVED')) continue;
+
     const ts = r[idxRequestedAt] instanceof Date ? r[idxRequestedAt] : new Date(r[idxRequestedAt]);
     const dkey = isNaN(ts.getTime()) ? '' : Utilities.formatDate(ts, tz, 'yyyy-MM-dd');
-    if (String(r[idxNik]||'').trim() === nik && String(r[idxMode]||'').trim() === mode && dkey === todayKey && (st === 'PENDING' || st === 'APPROVED')){
-      return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode yang sama hari ini sudah ada.' };
+    if (String(r[idxNik]||'').trim() !== nik) continue;
+    if (String(r[idxMode]||'').trim().toLowerCase() !== mode) continue;
+    if (dkey !== todayKey) continue;
+
+    if (mode === 'gate'){
+      const rowDir = String((idxGateDirection >= 0 ? r[idxGateDirection] : '') || '').trim().toUpperCase();
+      if (rowDir === gateDirection){
+        return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode gate dengan gate direction yang sama hari ini sudah ada.' };
+      }
+      continue;
     }
+
+    return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode training hari ini sudah ada.' };
   }
 
   const reqId = createReconId_();
@@ -564,8 +578,12 @@ function adminReconcileList_(body){
   const values = sh.getDataRange().getValues();
   if (values.length < 2) return { ok:true, rows:[] };
   const header = values[0].map(String);
-  const rows = values.slice(1).map(r => mapReconRow_(header, r)).reverse();
-  return { ok:true, rows };
+  const filterStatus = String(body.status || body.filter_status || 'PENDING').trim().toUpperCase();
+  let rows = values.slice(1).map(r => mapReconRow_(header, r)).reverse();
+  if (filterStatus && filterStatus !== 'ALL') {
+    rows = rows.filter(r => String(r.status || '').trim().toUpperCase() === filterStatus);
+  }
+  return { ok:true, rows, filter_status: filterStatus || 'PENDING' };
 }
 
 function findReconRowById_(requestId){
