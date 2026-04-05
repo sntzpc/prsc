@@ -91,3 +91,95 @@ async function adminExportCsv(){
   }
 }
 
+
+
+async function adminLoadReconcile(){
+  try{
+    if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+    const r = await api('adminReconcileList', { admin_token: State.adminToken });
+    if (!r.ok) throw new Error(r.error || 'Gagal memuat rekonsil');
+
+    const rows = Array.isArray(r.rows) ? r.rows : [];
+    const tbody = document.querySelector('#reconcile-table tbody');
+    const sum = document.getElementById('reconcile-summary');
+    if (!tbody || !sum) return;
+
+    const pending = rows.filter(x => String(x.status||'').toUpperCase() === 'PENDING').length;
+    sum.textContent = `Total permohonan: ${rows.length} | Pending: ${pending}`;
+
+    tbody.innerHTML = rows.map(x => {
+      const statusReq = String(x.status || '');
+      const canAct = statusReq.toUpperCase() === 'PENDING';
+      const note = [x.request_note, x.admin_note].filter(Boolean).join(' | ');
+      return `
+        <tr>
+          <td>${escapeHtml(x.requested_at || '')}</td>
+          <td>${escapeHtml(x.nik || '')}</td>
+          <td>${escapeHtml(x.nama || '')}</td>
+          <td>${escapeHtml(x.mode || '')}</td>
+          <td>${escapeHtml(x.last_status || '')}</td>
+          <td><b>${escapeHtml(statusReq)}</b></td>
+          <td>${escapeHtml(note || '-')}</td>
+          <td>
+            ${canAct ? `
+              <button class="btn primary btn-recon-approve" data-id="${escapeHtml(x.request_id || '')}" type="button">Setujui</button>
+              <button class="btn ghost btn-recon-reject" data-id="${escapeHtml(x.request_id || '')}" type="button">Tolak</button>
+            ` : '<span class="small">Selesai</span>'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    if (!tbody.dataset.bound){
+      tbody.dataset.bound = '1';
+      tbody.addEventListener('click', async (e)=>{
+        const approveBtn = e.target.closest('.btn-recon-approve');
+        const rejectBtn  = e.target.closest('.btn-recon-reject');
+        if (!approveBtn && !rejectBtn) return;
+
+        const requestId = (approveBtn || rejectBtn).dataset.id || '';
+        const adminNote = window.prompt(approveBtn ? 'Catatan admin (opsional):' : 'Alasan penolakan (opsional):', '') ?? '';
+        try{
+          if (approveBtn){
+            await adminApproveReconcile(requestId, adminNote);
+          } else {
+            await adminRejectReconcile(requestId, adminNote);
+          }
+        } catch(err){
+          alert(String(err.message || err));
+        }
+      });
+    }
+  }catch(e){
+    if (handleAdminAuthError_(e)) return;
+    const sum = document.getElementById('reconcile-summary');
+    if (sum) sum.textContent = String(e.message || e);
+  }
+}
+
+async function adminApproveReconcile(requestId, adminNote=''){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  const r = await api('adminApproveReconcile', { admin_token: State.adminToken, request_id: requestId, admin_note: adminNote });
+  if (!r.ok) throw new Error(r.error || 'Gagal menyetujui rekonsil');
+  alert(r.message || 'Rekonsil disetujui.');
+  await adminLoadReconcile();
+}
+
+async function adminRejectReconcile(requestId, adminNote=''){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  const r = await api('adminRejectReconcile', { admin_token: State.adminToken, request_id: requestId, admin_note: adminNote });
+  if (!r.ok) throw new Error(r.error || 'Gagal menolak rekonsil');
+  alert(r.message || 'Rekonsil ditolak.');
+  await adminLoadReconcile();
+}
+
+async function adminDeleteFailedAttendance(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  if (!window.confirm('Hapus data attendance yang gagal / identitas kosong? Aksi ini tidak bisa dibatalkan.')) return;
+  const r = await api('adminDeleteFailedAttendance', { admin_token: State.adminToken });
+  if (!r.ok) throw new Error(r.error || 'Gagal menghapus data gagal');
+  alert(r.message || 'Pembersihan selesai.');
+  await adminRekap().catch(()=>{});
+  await adminLogs().catch(()=>{});
+  await adminLoadReconcile().catch(()=>{});
+}

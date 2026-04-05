@@ -159,6 +159,7 @@ function initAdminModal(){
       try{ adminLoadMateri(); }catch(e){}
       try{ dashTodayDefaults(); }catch(e){}
       try{ await initDashboardMeta(); }catch(e){}
+      try{ await adminLoadReconcile(); }catch(e){}
 
       // init fitur heavy hanya sekali
       if (!State.enrollInited){
@@ -289,6 +290,18 @@ function initAdminModal(){
     $('#btn-export'),
     async()=> await adminExportCsv(),
     { text:'Export…', overlay:true, overlayText:'Menyiapkan file CSV…' }
+  ));
+
+  $('#btn-reconcile-refresh')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-reconcile-refresh'),
+    async()=> await adminLoadReconcile(),
+    { text:'Memuat…', overlay:true, overlayText:'Memuat permohonan rekonsil…' }
+  ));
+
+  $('#btn-delete-failed-att')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-delete-failed-att'),
+    async()=> await adminDeleteFailedAttendance(),
+    { text:'Menghapus…', overlay:true, overlayText:'Membersihkan data gagal di attendance…' }
   ));
 
   $('#btn-d-preview')?.addEventListener('click', ()=> Busy.wrap(

@@ -7,6 +7,104 @@
 
 // SECTION: Auto Presensi Config
 const AUTO_PRESENSI_DELAY_MS = 2000;
+const PRESENSI_FAIL_COUNT_KEY = 'presensi_fail_face_count';
+const PRESENSI_FAIL_CTX_KEY = 'presensi_fail_face_ctx';
+const PRESENSI_RECON_SUBMITTED_KEY = 'presensi_recon_submitted_today';
+
+function getPresensiFailCount(){
+  return Number(localStorage.getItem(PRESENSI_FAIL_COUNT_KEY) || 0) || 0;
+}
+function setPresensiFailCount(v){
+  localStorage.setItem(PRESENSI_FAIL_COUNT_KEY, String(Math.max(0, Number(v)||0)));
+}
+function clearPresensiFailCount(){
+  localStorage.removeItem(PRESENSI_FAIL_COUNT_KEY);
+  localStorage.removeItem(PRESENSI_FAIL_CTX_KEY);
+}
+function todayKeyLocal_(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function getReconSubmittedToday(){
+  const raw = localStorage.getItem(PRESENSI_RECON_SUBMITTED_KEY) || '';
+  return raw === todayKeyLocal_();
+}
+function markReconSubmittedToday(){
+  localStorage.setItem(PRESENSI_RECON_SUBMITTED_KEY, todayKeyLocal_());
+}
+function isRecognitionFailureStatus(st){
+  const s = String(st || '').toUpperCase();
+  return ['FACE_NOT_MATCH','FACE_AMBIGUOUS','LIVENESS_FAIL','LIVENESS_MODE_MISMATCH'].includes(s);
+}
+function openReconcileModal(ctx = {}){
+  const modal = $('#reconcile-modal');
+  if (!modal) return;
+  show(modal);
+  const info = $('#reconcile-info');
+  if (info){
+    const cnt = getPresensiFailCount();
+    info.innerHTML = `Percobaan gagal terdeteksi <b>${cnt} kali</b>. Silakan ajukan rekonsil dengan NIK yang valid.`;
+  }
+  try{ localStorage.setItem(PRESENSI_FAIL_CTX_KEY, JSON.stringify(ctx || {})); }catch(e){}
+  if ($('#reconcile-result')) $('#reconcile-result').innerHTML = '';
+}
+function closeReconcileModal(){
+  const modal = $('#reconcile-modal');
+  if (modal) hide(modal);
+}
+async function submitReconcileRequest(){
+  const nik = ($('#reconcile-nik')?.value || '').trim();
+  const request_note = ($('#reconcile-note')?.value || '').trim();
+  const result = $('#reconcile-result');
+  if (!nik){
+    if (result) result.innerHTML = 'NIK wajib diisi.';
+    return;
+  }
+  let ctx = {};
+  try{ ctx = JSON.parse(localStorage.getItem(PRESENSI_FAIL_CTX_KEY) || '{}') || {}; }catch(e){}
+  const payload = {
+    nik,
+    request_note,
+    fail_count: getPresensiFailCount(),
+    last_status: ctx.last_status || '',
+    mode: ctx.mode || ($('#mode')?.value || 'training'),
+    training_type: ctx.training_type || ($('#training_type')?.value || ''),
+    activity: ctx.activity || ($('#activity')?.value || ''),
+    material: ctx.material || ($('#material')?.value || ''),
+    gate_reason: ctx.gate_reason || '',
+    gate_direction: ctx.gate_direction || '',
+    device_id: State.deviceId || '',
+    lat: State.loc?.lat,
+    lng: State.loc?.lng,
+    accuracy_m: State.loc?.accuracy_m
+  };
+  try{
+    const r = await api('submitReconcile', payload);
+    if (!r.ok) throw new Error(r.error || 'Pengajuan rekonsil gagal');
+    if (result) result.innerHTML = `✅ ${escapeHtml(r.message || 'Permohonan berhasil diajukan.')}<br><b>${escapeHtml(r.nama || '')}</b>`;
+    markReconSubmittedToday();
+    clearPresensiFailCount();
+  }catch(err){
+    if (result) result.innerHTML = `❌ ${escapeHtml(String(err.message || err))}`;
+  }
+}
+function trackRecognitionFailure(ctx = {}){
+  const next = getPresensiFailCount() + 1;
+  setPresensiFailCount(next);
+  try{ localStorage.setItem(PRESENSI_FAIL_CTX_KEY, JSON.stringify(ctx || {})); }catch(e){}
+  if (next >= 5 && !getReconSubmittedToday()){
+    openReconcileModal(ctx);
+  }
+}
+function bindReconcileUi(){
+  $('#btn-reconcile-close')?.addEventListener('click', closeReconcileModal);
+  $('#reconcile-modal')?.addEventListener('click', (e)=>{ if (e.target?.id === 'reconcile-modal') closeReconcileModal(); });
+  $('#btn-reconcile-submit')?.addEventListener('click', ()=> submitReconcileRequest());
+}
+
 
 // internal state
 let autoPresensiTimer = null;
@@ -56,6 +154,7 @@ async function doPresensi(){
       // liveness
       const live = await runLiveness($('#video'));
       if (!live.ok){
+        trackRecognitionFailure({ last_status:'LIVENESS_FAIL', mode: payload.mode, training_type: payload.training_type, activity: payload.activity, material: payload.material, gate_reason: payload.gate_reason, gate_direction: payload.gate_direction });
         presensiFailCam('Liveness gagal. Coba lagi (cahaya cukup, wajah penuh di kamera).');
         return;
       }
@@ -65,6 +164,7 @@ async function doPresensi(){
 
       const descAvg = await captureMultiShotAvg($('#video'), 3, 2500);
       if (!descAvg){
+        trackRecognitionFailure({ last_status:'LOCAL_FACE_FAIL', mode: payload.mode, training_type: payload.training_type, activity: payload.activity, material: payload.material, gate_reason: payload.gate_reason, gate_direction: payload.gate_direction });
         presensiFailCam('Wajah tidak stabil terdeteksi. Coba lagi.');
         return;
       }
@@ -74,6 +174,7 @@ async function doPresensi(){
 
       if (r.ok){
         clearPresensiFail();
+        clearPresensiFailCount();
 
         UI.setResult(
           `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
@@ -88,6 +189,9 @@ async function doPresensi(){
         );
 
       } else {
+        if (isRecognitionFailureStatus(r.status)){
+          trackRecognitionFailure({ last_status:r.status, mode: payload.mode, training_type: payload.training_type, activity: payload.activity, material: payload.material, gate_reason: payload.gate_reason, gate_direction: payload.gate_direction });
+        }
         if (String(r.status || '').toUpperCase() === 'DUPLICATE_ATTEMPT'){
           presensiFailCam('Presensi duplikat terdeteksi.<br/>Jika barusan sudah presensi, tidak perlu ulang. (Anti-Duplicate Aktif)');
           return;
@@ -225,4 +329,5 @@ function initAutoPresensiOnCameraModal(){
 // SECTION: Init Auto Presensi Hook
 window.addEventListener('DOMContentLoaded', () => {
   initAutoPresensiOnCameraModal();
+  bindReconcileUi();
 });

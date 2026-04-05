@@ -6,6 +6,7 @@ const SHEET_SETTINGS  = 'settings';
 const SHEET_TRAINING_META = 'training_meta';
 const SHEET_MATERIALS = 'materials';
 const SHEET_GEOFENCE_POINTS = 'geofence_points';
+const SHEET_RECON = 'reconcile_requests';
 const SHEET_ID = '18JkzFJHC6q1mfSzeyErH96dhBWMVQJDw4Fd6Oj8lgqQ';
 
 // Ganti dengan Folder ID Google Drive Anda
@@ -72,6 +73,7 @@ function handleApi_(body){
   }
   if (action === 'materialsSuggest') return json_(materialsSuggest_(body));
   if (action === 'verifyAndLog') return json_(verifyAndLog_(body)); // peserta
+  if (action === 'submitReconcile') return json_(submitReconcile_(body));
 
   // admin auth
   if (action === 'adminLogin') return json_(adminLogin_(body));
@@ -81,6 +83,10 @@ function handleApi_(body){
   if (action === 'adminSummary')   return json_(adminSummary_(body));
   if (action === 'adminLogs')      return json_(adminLogs_(body));
   if (action === 'adminExportCsv') return json_(adminExportCsv_(body));
+  if (action === 'adminReconcileList') return json_(adminReconcileList_(body));
+  if (action === 'adminApproveReconcile') return json_(adminApproveReconcile_(body));
+  if (action === 'adminRejectReconcile') return json_(adminRejectReconcile_(body));
+  if (action === 'adminDeleteFailedAttendance') return json_(adminDeleteFailedAttendance_(body));
 
     // admin protected - NEW
   if (action === 'adminUpdateSettings') return json_(adminUpdateSettings_(body));
@@ -188,6 +194,7 @@ function doPost(e) {
     }
     if (action === 'materialsSuggest') return json_(materialsSuggest_(body));
     if (action === 'verifyAndLog') return json_(verifyAndLog_(body)); // peserta
+    if (action === 'submitReconcile') return json_(submitReconcile_(body));
 
     // admin auth
     if (action === 'adminLogin') return json_(adminLogin_(body));
@@ -197,6 +204,10 @@ function doPost(e) {
     if (action === 'adminSummary')   return json_(adminSummary_(body));
     if (action === 'adminLogs')      return json_(adminLogs_(body));
     if (action === 'adminExportCsv') return json_(adminExportCsv_(body));
+    if (action === 'adminReconcileList') return json_(adminReconcileList_(body));
+    if (action === 'adminApproveReconcile') return json_(adminApproveReconcile_(body));
+    if (action === 'adminRejectReconcile') return json_(adminRejectReconcile_(body));
+    if (action === 'adminDeleteFailedAttendance') return json_(adminDeleteFailedAttendance_(body));
 
       // admin protected - NEW
     if (action === 'adminUpdateSettings') return json_(adminUpdateSettings_(body));
@@ -411,6 +422,240 @@ function ensureAttHeader_(sh){
   const header = sh.getRange(1,1,1,expected.length).getValues()[0];
   const empty = header.join('').trim() === '';
   if (empty) sh.getRange(1,1,1,expected.length).setValues([expected]);
+}
+
+
+function ensureReconHeader_(sh){
+  const expected = ['request_id','requested_at','nik','nama','mode','training_type','activity','material','gate_reason','gate_direction','device_id','lat','lng','accuracy_m','last_status','fail_count','request_note','status','approved_at','approved_by','admin_note'];
+  const header = sh.getRange(1,1,1,expected.length).getValues()[0];
+  const empty = header.join('').trim() === '';
+  if (empty) sh.getRange(1,1,1,expected.length).setValues([expected]);
+}
+
+function getReconSheet_(){
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SHEET_RECON);
+  if (!sh) sh = ss.insertSheet(SHEET_RECON);
+  ensureReconHeader_(sh);
+  return sh;
+}
+
+function createReconId_(){
+  const tz = Session.getScriptTimeZone();
+  return 'RECON-' + Utilities.formatDate(new Date(), tz, 'yyyyMMdd-HHmmss') + '-' + Math.floor(Math.random()*900 + 100);
+}
+
+function findNameByNik_(nik){
+  const key = String(nik||'').trim();
+  if (!key) return '';
+  try{
+    const ss = SpreadsheetApp.getActive();
+    const trySheets = [SHEET_USERS, SHEET_PESERTA];
+    for (const sheetName of trySheets){
+      const sh = ss.getSheetByName(sheetName);
+      if (!sh) continue;
+      const values = sh.getDataRange().getValues();
+      if (values.length < 2) continue;
+      const header = values[0].map(String);
+      const idxNik = header.indexOf('nik');
+      const idxNama = header.indexOf('nama');
+      if (idxNik < 0 || idxNama < 0) continue;
+      for (let i=1;i<values.length;i++){
+        if (String(values[i][idxNik]||'').trim() === key){
+          return String(values[i][idxNama] || '').trim();
+        }
+      }
+    }
+  }catch(e){}
+  return '';
+}
+
+function submitReconcile_(body){
+  const nik = String(body.nik || '').trim();
+  if (!nik) return { ok:false, error:'NIK wajib diisi.' };
+
+  const nama = findNameByNik_(nik);
+  if (!nama) return { ok:false, error:'NIK tidak ditemukan pada data peserta/users.' };
+
+  const sh = getReconSheet_();
+  const values = sh.getDataRange().getValues();
+  const header = values[0].map(String);
+  const rows = values.slice(1);
+
+  const idxNik = header.indexOf('nik');
+  const idxMode = header.indexOf('mode');
+  const idxStatus = header.indexOf('status');
+  const idxRequestedAt = header.indexOf('requested_at');
+
+  const now = new Date();
+  const tz = Session.getScriptTimeZone();
+  const todayKey = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const mode = String(body.mode || 'training');
+
+  for (let i=0;i<rows.length;i++){
+    const r = rows[i];
+    const st = String(r[idxStatus] || '').trim().toUpperCase();
+    const ts = r[idxRequestedAt] instanceof Date ? r[idxRequestedAt] : new Date(r[idxRequestedAt]);
+    const dkey = isNaN(ts.getTime()) ? '' : Utilities.formatDate(ts, tz, 'yyyy-MM-dd');
+    if (String(r[idxNik]||'').trim() === nik && String(r[idxMode]||'').trim() === mode && dkey === todayKey && (st === 'PENDING' || st === 'APPROVED')){
+      return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode yang sama hari ini sudah ada.' };
+    }
+  }
+
+  const reqId = createReconId_();
+  sh.appendRow([
+    reqId,
+    now,
+    nik,
+    nama,
+    mode,
+    String(body.training_type || ''),
+    String(body.activity || ''),
+    String(body.material || ''),
+    String(body.gate_reason || ''),
+    String(body.gate_direction || ''),
+    String(body.device_id || ''),
+    Number(body.lat || '') || '',
+    Number(body.lng || '') || '',
+    Number(body.accuracy_m || '') || '',
+    String(body.last_status || ''),
+    Number(body.fail_count || 0) || 0,
+    String(body.request_note || ''),
+    'PENDING',
+    '',
+    '',
+    ''
+  ]);
+
+  return { ok:true, request_id:reqId, nama, nik, message:'Permohonan rekonsil berhasil diajukan.' };
+}
+
+function adminReconcileList_(body){
+  requireAdmin_(body);
+  const sh = getReconSheet_();
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return { ok:true, rows:[] };
+  const header = values[0].map(String);
+  const rows = values.slice(1).map(r => mapRow_(header, r)).reverse();
+  return { ok:true, rows };
+}
+
+function findReconRowById_(requestId){
+  const sh = getReconSheet_();
+  const values = sh.getDataRange().getValues();
+  const header = values[0].map(String);
+  const rows = values.slice(1);
+  const idxId = header.indexOf('request_id');
+  for (let i=0;i<rows.length;i++){
+    if (String(rows[i][idxId]||'').trim() === String(requestId||'').trim()){
+      return { sh, header, row: rows[i], rowIndex: i+2 };
+    }
+  }
+  return null;
+}
+
+function adminApproveReconcile_(body){
+  requireAdmin_(body);
+  const requestId = String(body.request_id || '').trim();
+  if (!requestId) return { ok:false, error:'request_id wajib.' };
+
+  const hit = findReconRowById_(requestId);
+  if (!hit) return { ok:false, error:'Permohonan tidak ditemukan.' };
+
+  const idx = (k)=> hit.header.indexOf(k);
+  const status = String(hit.row[idx('status')] || '').trim().toUpperCase();
+  if (status === 'APPROVED') return { ok:false, error:'Permohonan ini sudah disetujui.' };
+  if (status === 'REJECTED') return { ok:false, error:'Permohonan ini sudah ditolak.' };
+
+  const adminNote = String(body.admin_note || '').trim();
+
+  logAttendance_({
+    nik: String(hit.row[idx('nik')] || ''),
+    nama: String(hit.row[idx('nama')] || ''),
+    mode: String(hit.row[idx('mode')] || 'training'),
+    training_type: String(hit.row[idx('training_type')] || ''),
+    activity: String(hit.row[idx('activity')] || ''),
+    material: String(hit.row[idx('material')] || ''),
+    gate_reason: String(hit.row[idx('gate_reason')] || ''),
+    gate_direction: String(hit.row[idx('gate_direction')] || ''),
+    device_id: String(hit.row[idx('device_id')] || ''),
+    lat: hit.row[idx('lat')] || '',
+    lng: hit.row[idx('lng')] || '',
+    accuracy_m: hit.row[idx('accuracy_m')] || '',
+    distance_m: '',
+    liveness: JSON.stringify({ ok:false, type:'reconcile', request_id: requestId, last_status:String(hit.row[idx('last_status')] || '') }),
+    status: 'REKONSIL'
+  });
+
+  hit.sh.getRange(hit.rowIndex, idx('status')+1).setValue('APPROVED');
+  hit.sh.getRange(hit.rowIndex, idx('approved_at')+1).setValue(new Date());
+  hit.sh.getRange(hit.rowIndex, idx('approved_by')+1).setValue('admin');
+  hit.sh.getRange(hit.rowIndex, idx('admin_note')+1).setValue(adminNote);
+
+  return { ok:true, message:'Permohonan rekonsil disetujui dan attendance dicatat sebagai REKONSIL.' };
+}
+
+function adminRejectReconcile_(body){
+  requireAdmin_(body);
+  const requestId = String(body.request_id || '').trim();
+  if (!requestId) return { ok:false, error:'request_id wajib.' };
+
+  const hit = findReconRowById_(requestId);
+  if (!hit) return { ok:false, error:'Permohonan tidak ditemukan.' };
+
+  const idx = (k)=> hit.header.indexOf(k);
+  const status = String(hit.row[idx('status')] || '').trim().toUpperCase();
+  if (status === 'APPROVED') return { ok:false, error:'Permohonan ini sudah disetujui.' };
+  if (status === 'REJECTED') return { ok:false, error:'Permohonan ini sudah ditolak.' };
+
+  hit.sh.getRange(hit.rowIndex, idx('status')+1).setValue('REJECTED');
+  hit.sh.getRange(hit.rowIndex, idx('approved_at')+1).setValue(new Date());
+  hit.sh.getRange(hit.rowIndex, idx('approved_by')+1).setValue('admin');
+  hit.sh.getRange(hit.rowIndex, idx('admin_note')+1).setValue(String(body.admin_note || '').trim());
+
+  return { ok:true, message:'Permohonan rekonsil ditolak.' };
+}
+
+function adminDeleteFailedAttendance_(body){
+  requireAdmin_(body);
+
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(SHEET_ATT);
+  if (!sh) return { ok:true, deleted:0, message:'Sheet attendance belum ada.' };
+
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return { ok:true, deleted:0, message:'Tidak ada data untuk dibersihkan.' };
+
+  const header = values[0].map(String);
+  const idxNik = header.indexOf('nik');
+  const idxNama = header.indexOf('nama');
+  const idxStatus = header.indexOf('status');
+
+  const shouldDelete = (row)=>{
+    const nik = String(row[idxNik] || '').trim();
+    const nama = String(row[idxNama] || '').trim();
+    const st = String(row[idxStatus] || '').trim().toUpperCase();
+    const blankIdentity = (!nik && !nama);
+    const faceFail = (
+      st === 'FACE_NOT_MATCH' ||
+      st === 'FACE_AMBIGUOUS' ||
+      st === 'LIVENESS_FAIL' ||
+      st === 'LIVENESS_MODE_MISMATCH' ||
+      st === 'OUT_OF_FENCE_FACE_NOT_MATCH' ||
+      st === 'OUT_OF_FENCE_FACE_AMBIGUOUS'
+    );
+    return blankIdentity || faceFail;
+  };
+
+  let deleted = 0;
+  for (let r = values.length; r >= 2; r--){
+    if (shouldDelete(values[r-1])){
+      sh.deleteRow(r);
+      deleted++;
+    }
+  }
+
+  return { ok:true, deleted, message: deleted ? ('Berhasil menghapus ' + deleted + ' data gagal dari attendance.') : 'Tidak ada data gagal yang perlu dihapus.' };
 }
 
 /* =========================
