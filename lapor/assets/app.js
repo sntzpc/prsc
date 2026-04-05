@@ -54,46 +54,123 @@ function applyTheme(theme) {
   saveTheme(theme);
 }
 
-function toISODate(value) {
-  if (!value) return '';
-  if (typeof value === 'string') {
-    const s = value.trim();
-    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-    m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
-    if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-    const d = new Date(s);
-    if (!Number.isNaN(d.valueOf())) {
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
-    return '';
+function parseLocalDateParts(value) {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.valueOf())) {
+    return {
+      y: value.getFullYear(),
+      m: value.getMonth() + 1,
+      d: value.getDate(),
+      hh: value.getHours(),
+      mm: value.getMinutes(),
+      ss: value.getSeconds()
+    };
   }
-  const d = new Date(value);
-  return Number.isNaN(d.valueOf()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const s = String(value).trim();
+  if (!s) return null;
+
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    const yRaw = Number(m[3]);
+    const y = yRaw < 100 ? (yRaw >= 70 ? 1900 + yRaw : 2000 + yRaw) : yRaw;
+    const hh = Number(m[4] || 0);
+    const mm = Number(m[5] || 0);
+    const ss = Number(m[6] || 0);
+    const hasTime = /\s+\d{1,2}:\d{2}/.test(s);
+
+    let d, mo;
+    if (hasTime) {
+      // attendance dari GAS akan dikirim sebagai dd/MM/yyyy HH:mm:ss
+      d = a; mo = b;
+    } else if (a > 12 && b <= 12) {
+      d = a; mo = b;
+    } else if (b > 12 && a <= 12) {
+      mo = a; d = b;
+    } else {
+      // default untuk format lokal Indonesia
+      d = a; mo = b;
+    }
+
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      return { d, m: mo, y, hh, mm, ss };
+    }
+  }
+
+  m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2}|\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m) {
+    const d = Number(m[1]);
+    const mo = Number(m[2]);
+    const yRaw = Number(m[3]);
+    const y = yRaw < 100 ? (yRaw >= 70 ? 1900 + yRaw : 2000 + yRaw) : yRaw;
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      return {
+        d,
+        m: mo,
+        y,
+        hh: Number(m[4] || 0),
+        mm: Number(m[5] || 0),
+        ss: Number(m[6] || 0)
+      };
+    }
+  }
+
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (m) {
+    return {
+      y: Number(m[1]),
+      m: Number(m[2]),
+      d: Number(m[3]),
+      hh: Number(m[4] || 0),
+      mm: Number(m[5] || 0),
+      ss: Number(m[6] || 0)
+    };
+  }
+
+  return null;
+}
+
+function partsToISO(parts) {
+  if (!parts) return '';
+  return `${parts.y}-${String(parts.m).padStart(2, '0')}-${String(parts.d).padStart(2, '0')}`;
+}
+
+function compareDateTimeParts(a, b) {
+  const ka = [a.y, a.m, a.d, a.hh || 0, a.mm || 0, a.ss || 0];
+  const kb = [b.y, b.m, b.d, b.hh || 0, b.mm || 0, b.ss || 0];
+  for (let i = 0; i < ka.length; i++) {
+    if (ka[i] !== kb[i]) return ka[i] - kb[i];
+  }
+  return 0;
+}
+
+function toISODate(value) {
+  const parts = parseLocalDateParts(value);
+  return partsToISO(parts);
 }
 
 function fmtTime(value) {
-  if (!value) return '';
-  const s = String(value).trim();
-  let m = s.match(/(?:T|\s)(\d{2}):(\d{2})(?::\d{2})?/);
-  if (m) return `${m[1]}.${m[2]}`;
-  m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  const parts = parseLocalDateParts(value);
+  if (parts) return `${String(parts.hh || 0).padStart(2, '0')}.${String(parts.mm || 0).padStart(2, '0')}`;
+
+  const s = String(value || '').trim();
+  if (!s) return '';
+  let m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
   if (m) return `${m[1].padStart(2, '0')}.${m[2]}`;
   m = s.match(/^(\d{1,2})\.(\d{2})$/);
   if (m) return `${m[1].padStart(2, '0')}.${m[2]}`;
-  const d = new Date(s);
-  if (Number.isNaN(d.valueOf())) return '';
-  return `${String(d.getHours()).padStart(2, '0')}.${String(d.getMinutes()).padStart(2, '0')}`;
+  return '';
 }
 function fmtDateLong(isoDate) {
-  const d = new Date(`${isoDate}T00:00:00`);
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+  const [y, m, d] = String(isoDate || '').split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 function fmtMonthYear(isoDate) {
-  const d = new Date(`${isoDate}T00:00:00`);
-  return d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase();
+  const [y, m] = String(isoDate || '').split('-').map(Number);
+  if (!y || !m) return '';
+  return new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }).toUpperCase();
 }
 function fileDateStamp() {
   const d = new Date();
@@ -174,50 +251,94 @@ function buildFilterControls(participants) {
     .join('');
 }
 
+
+function getCI(obj, keys) {
+  if (!obj) return '';
+  const map = {};
+  Object.keys(obj).forEach(k => map[String(k).toLowerCase()] = obj[k]);
+  for (const key of keys) {
+    const hit = map[String(key).toLowerCase()];
+    if (hit !== undefined && hit !== null) return hit;
+  }
+  return '';
+}
+
 function normalizeDataset(raw) {
-  const sheets = raw.sheets || raw;
+  const sheets = raw?.sheets || raw || {};
   const peserta = (sheets.peserta || []).map(item => {
     const obj = {};
-    PARTICIPANT_FIELDS.forEach(field => obj[field] = item[field] ?? '');
-    obj.nik = String(obj.nik ?? '');
+    PARTICIPANT_FIELDS.forEach(field => obj[field] = getCI(item, [field]) ?? '');
+    obj.nik = String(obj.nik ?? '').trim();
+    obj.nama = String(obj.nama ?? '').trim();
     return obj;
-  });
+  }).filter(item => item.nik);
+
   const attendance = (sheets.attendance || []).map(item => ({
-    timestamp: item.timestamp,
-    nik: String(item.nik ?? ''),
-    nama: item.nama ?? '',
-    mode: item.mode ?? '',
-    training_type: item.training_type ?? '',
-    activity: item.activity ?? '',
-    gate_reason: item.gate_reason ?? '',
-    gate_direction: item.gate_direction ?? '',
-    status: item.status ?? ''
+    timestamp: getCI(item, ['timestamp', 'waktu', 'tanggal', 'datetime']),
+    nik: String(getCI(item, ['nik']) ?? '').trim(),
+    nama: getCI(item, ['nama']),
+    mode: getCI(item, ['mode']),
+    training_type: getCI(item, ['training_type', 'jenis_pelatihan']),
+    activity: getCI(item, ['activity']),
+    material: getCI(item, ['material']),
+    gate_reason: getCI(item, ['gate_reason']),
+    gate_direction: getCI(item, ['gate_direction', 'arah']),
+    status: getCI(item, ['status'])
   })).filter(item => item.timestamp && item.nik);
 
   const holidays = (sheets.holidays || []).map(item => ({
-    tanggal: toISODate(item.tanggal),
-    keterangan: item.keterangan || 'Hari libur'
+    tanggal: toISODate(getCI(item, ['tanggal', 'date', 'libur', 'holiday_date'])),
+    keterangan: getCI(item, ['keterangan', 'description', 'holiday']) || 'Hari libur'
   })).filter(item => item.tanggal);
 
   return { peserta, attendance, holidays };
 }
 
 function buildHolidayMap(holidays) {
+
   const map = new Map();
   holidays.forEach(item => map.set(item.tanggal, item.keterangan));
   return map;
 }
 
+function makeDateRange(startIso, endIso) {
+  if (!startIso || !endIso) return [];
+  const out = [];
+  const cur = new Date(`${startIso}T00:00:00`);
+  const end = new Date(`${endIso}T00:00:00`);
+  while (cur <= end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, '0');
+    const d = String(cur.getDate()).padStart(2, '0');
+    out.push(`${y}-${m}-${d}`);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 function getDateRangeFromFilters(allDates) {
   const sorted = [...allDates].sort();
-  if (!sorted.length) return [];
-  if (monthInput.value) {
-    const prefix = monthInput.value;
-    return sorted.filter(date => date.startsWith(prefix));
+
+  // Jika user memilih rentang tanggal tertentu, tampilkan penuh sesuai rentang itu.
+  if (startDateInput.value || endDateInput.value) {
+    const start = startDateInput.value || sorted[0];
+    const end = endDateInput.value || sorted[sorted.length - 1];
+    if (!start || !end) return [];
+    return makeDateRange(start, end);
   }
-  const start = startDateInput.value || sorted[0];
-  const end = endDateInput.value || sorted[sorted.length - 1];
-  return sorted.filter(date => date >= start && date <= end);
+
+  // Jika user memilih bulan, tampilkan 1 bulan penuh meskipun ada tanggal tanpa data.
+  if (monthInput.value) {
+    const [year, month] = monthInput.value.split('-').map(Number);
+    if (!year || !month) return [];
+    const lastDay = new Date(year, month, 0).getDate();
+    const start = `${year}-${String(month).padStart(2, '0')}-01`;
+    const end = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return makeDateRange(start, end);
+  }
+
+  if (!sorted.length) return [];
+  return sorted;
 }
 
 function filterParticipants(rows) {
@@ -229,6 +350,7 @@ function filterParticipants(rows) {
     return String(item[field] ?? '') === value;
   }));
 }
+
 
 function buildRenderedData() {
   if (!state.raw) return null;
@@ -259,12 +381,15 @@ function buildRenderedData() {
     const daily = {};
     dateList.forEach(date => {
       const records = [...(attendanceByNikDate.get(`${peserta.nik}__${date}`) || [])]
-        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        .sort((a, b) => compareDateTimeParts(parseLocalDateParts(a.timestamp) || {}, parseLocalDateParts(b.timestamp) || {}));
 
-      const ins = records.filter(r => String(r.gate_direction).toUpperCase() === 'IN');
-      const outs = records.filter(r => String(r.gate_direction).toUpperCase() === 'OUT');
+      const ins = records.filter(r => String(r.gate_direction || '').toUpperCase() === 'IN');
+      const outs = records.filter(r => String(r.gate_direction || '').toUpperCase() === 'OUT');
+
+      // Sesuai kebutuhan: ambil data pertama untuk IN dan data pertama untuk OUT.
       const masuk = ins[0]?.timestamp || records[0]?.timestamp || '';
-      const keluar = outs[0]?.timestamp || '';
+      const keluar = outs[0]?.timestamp || (records.length > 1 ? records[1]?.timestamp || '' : '');
+
       daily[date] = {
         masuk: fmtTime(masuk),
         keluar: fmtTime(keluar),
@@ -287,8 +412,10 @@ function buildRenderedData() {
 }
 
 function isHolidayColumn(isoDate) {
-  const date = new Date(`${isoDate}T00:00:00`);
-  const isSunday = date.getDay() === 0;
+
+  const [y, m, d] = String(isoDate || '').split('-').map(Number);
+  if (!y || !m || !d) return false;
+  const isSunday = new Date(y, m - 1, d).getDay() === 0;
   return isSunday || state.holidayMap.has(isoDate);
 }
 
@@ -318,7 +445,8 @@ function renderTable(rendered) {
   });
 
   dateList.forEach(date => {
-    const d = new Date(`${date}T00:00:00`);
+    const [yy, mm, dd] = date.split('-').map(Number);
+    const d = new Date(yy, mm - 1, dd);
     const holidayClass = isHolidayColumn(date) ? 'holiday' : '';
     const dayLabel = d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' });
     const weekDay = d.toLocaleDateString('id-ID', { weekday: 'short' });
@@ -381,7 +509,6 @@ async function fetchDataset() {
     setProgress(24, 'GAS gagal, memuat data sample lokal...');
     const response = await fetch(SAMPLE_DATA_URL);
     const raw = await response.json();
-    await saveDataset(raw);
     state.source = 'Sample lokal';
     updateCacheInfo();
     return raw;
@@ -409,8 +536,8 @@ function reRenderOnly() {
 function getHolidayLegend(date) {
   const desc = state.holidayMap.get(date);
   if (desc) return desc;
-  const d = new Date(`${date}T00:00:00`);
-  if (d.getDay() === 0) return 'Minggu';
+  const [y, m, d] = String(date || '').split('-').map(Number);
+  if (y && m && d && new Date(y, m - 1, d).getDay() === 0) return 'Minggu';
   return '';
 }
 
@@ -499,12 +626,28 @@ function exportPdf() {
   setProgress(20, 'Menyiapkan file PDF...');
   const { rows, dateList, title } = state.rendered;
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a3' });
+
+  // Ukuran kertas fleksibel agar seluruh kolom dan baris muat dalam satu halaman.
+  const fixedColWidths = [26, 60, 120, 80, 50, 55];
+  const dynamicColWidth = 32; // per kolom Masuk/Keluar
+  const tableWidth = fixedColWidths.reduce((a, b) => a + b, 0) + (dateList.length * 2 * dynamicColWidth);
+  const pageWidth = Math.max(842, tableWidth + 60); // margin kiri-kanan
+  const rowHeight = 16;
+  const headerHeight = 56;
+  const titleBlock = 70;
+  const footerPad = 30;
+  const pageHeight = Math.max(595, titleBlock + headerHeight + (rows.length * rowHeight) + footerPad);
+
+  const doc = new jsPDF({
+    unit: 'pt',
+    format: [pageWidth, pageHeight],
+    orientation: pageWidth >= pageHeight ? 'landscape' : 'portrait'
+  });
 
   doc.setFontSize(16);
-  doc.text(title, 40, 40);
+  doc.text(title, pageWidth / 2, 28, { align: 'center' });
   doc.setFontSize(10);
-  doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, 40, 58);
+  doc.text(`Dicetak: ${new Date().toLocaleString('id-ID')}`, 30, 48);
 
   const head = [
     [
@@ -516,10 +659,12 @@ function exportPdf() {
       { content: 'Region', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
       ...dateList.flatMap(date => ([
         {
-          content: `${new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' })}\n${new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'short' })}`,
+          content: `${new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' })}
+${new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'short' })}`,
           colSpan: 2,
           styles: {
             halign: 'center',
+            valign: 'middle',
             fillColor: isHolidayColumn(date) ? [254, 202, 202] : [226, 232, 240]
           }
         }
@@ -543,21 +688,26 @@ function exportPdf() {
     ...dateList.flatMap(date => [row.daily[date]?.masuk || '', row.daily[date]?.keluar || ''])
   ]);
 
+  const columnStyles = {
+    0: { cellWidth: fixedColWidths[0], halign: 'center' },
+    1: { cellWidth: fixedColWidths[1] },
+    2: { cellWidth: fixedColWidths[2] },
+    3: { cellWidth: fixedColWidths[3] },
+    4: { cellWidth: fixedColWidths[4] },
+    5: { cellWidth: fixedColWidths[5] }
+  };
+  for (let i = 0; i < dateList.length * 2; i++) {
+    columnStyles[6 + i] = { cellWidth: dynamicColWidth, halign: 'center' };
+  }
+
   doc.autoTable({
-    startY: 70,
+    startY: 60,
     head,
     body,
     theme: 'grid',
     styles: { fontSize: 7, cellPadding: 3, overflow: 'linebreak', valign: 'middle' },
     headStyles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: 'bold' },
-    columnStyles: {
-      0: { cellWidth: 26, halign: 'center' },
-      1: { cellWidth: 60 },
-      2: { cellWidth: 120 },
-      3: { cellWidth: 80 },
-      4: { cellWidth: 50 },
-      5: { cellWidth: 55 }
-    },
+    columnStyles,
     didParseCell(data) {
       if (data.column.index >= 6) {
         data.cell.styles.halign = 'center';
@@ -571,7 +721,10 @@ function exportPdf() {
         }
       }
     },
-    margin: { left: 30, right: 30, top: 70 }
+    margin: { left: 30, right: 30, top: 60, bottom: 20 },
+    pageBreak: 'avoid',
+    rowPageBreak: 'avoid',
+    tableWidth: 'auto'
   });
 
   const filename = `Laporan_Harian_Absensi_${fileDateStamp()}.pdf`;

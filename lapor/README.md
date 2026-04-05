@@ -46,3 +46,20 @@ Lalu buka folder ZIP hasil extract, misalnya:
 ## Nama file unduhan
 - PDF: `Laporan_Harian_Absensi_YYYYMMDD.pdf`
 - XLSX: `Laporan_Harian_Absensi_YYYYMMDD.xlsx`
+
+
+## Revisi tambahan
+- Normalisasi field frontend dibuat case-insensitive agar data tetap terbaca walau bentuk header dari GAS berubah.
+- Jika `gate_direction` kosong, laporan tetap mencoba menampilkan pasangan data pertama dan kedua pada tanggal yang sama.
+- Backend memakai `getDisplayValues()` agar tanggal/jam dari sheet tidak bergeser.
+
+
+## Revisi libur nasional
+- Parser tanggal kini mendukung format tahun 2 digit pada sheet holidays, misalnya `03/04/26` akan dibaca sebagai `2026-04-03`.
+- Arsir merah tetap hanya untuk Minggu dan tanggal yang ada di sheet holidays.
+
+
+## Revisi tambahan
+- Jika memilih bulan, tanggal laporan selalu tampil 1 bulan penuh dari tanggal 1 sampai akhir bulan.
+- Jika memilih tanggal awal/akhir, laporan mengikuti penuh rentang tanggal tersebut.
+- PDF menggunakan ukuran kertas fleksibel agar seluruh kolom tampil dalam satu halaman.
