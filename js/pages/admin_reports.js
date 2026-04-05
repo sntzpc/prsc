@@ -159,7 +159,7 @@ async function adminLoadReconcile(){
 
 async function adminApproveReconcile(requestId, adminNote=''){
   if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
-  const r = await api('adminApproveReconcile', { admin_token: State.adminToken, request_id: requestId, admin_note: adminNote });
+  const r = await api('adminApproveReconcile', { admin_token: State.adminToken, request_id: requestId, requestId, admin_note: adminNote, admin_user: 'admin' });
   if (!r.ok) throw new Error(r.error || 'Gagal menyetujui rekonsil');
   alert(r.message || 'Rekonsil disetujui.');
   await adminLoadReconcile();
@@ -167,7 +167,7 @@ async function adminApproveReconcile(requestId, adminNote=''){
 
 async function adminRejectReconcile(requestId, adminNote=''){
   if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
-  const r = await api('adminRejectReconcile', { admin_token: State.adminToken, request_id: requestId, admin_note: adminNote });
+  const r = await api('adminRejectReconcile', { admin_token: State.adminToken, request_id: requestId, requestId, admin_note: adminNote, admin_user: 'admin' });
   if (!r.ok) throw new Error(r.error || 'Gagal menolak rekonsil');
   alert(r.message || 'Rekonsil ditolak.');
   await adminLoadReconcile();

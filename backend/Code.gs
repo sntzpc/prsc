@@ -530,13 +530,41 @@ function submitReconcile_(body){
   return { ok:true, request_id:reqId, nama, nik, message:'Permohonan rekonsil berhasil diajukan.' };
 }
 
+function mapReconRow_(header, row){
+  const o = {};
+  header.forEach((h,i)=> o[h]=row[i]);
+  return {
+    request_id: String(o.request_id || ''),
+    requested_at: o.requested_at ? new Date(o.requested_at).toISOString() : '',
+    nik: String(o.nik || ''),
+    nama: String(o.nama || ''),
+    mode: String(o.mode || ''),
+    training_type: String(o.training_type || ''),
+    activity: String(o.activity || ''),
+    material: String(o.material || ''),
+    gate_reason: String(o.gate_reason || ''),
+    gate_direction: String(o.gate_direction || ''),
+    device_id: String(o.device_id || ''),
+    lat: o.lat,
+    lng: o.lng,
+    accuracy_m: o.accuracy_m,
+    last_status: String(o.last_status || ''),
+    fail_count: Number(o.fail_count || 0) || 0,
+    request_note: String(o.request_note || ''),
+    status: String(o.status || ''),
+    approved_at: o.approved_at ? new Date(o.approved_at).toISOString() : '',
+    approved_by: String(o.approved_by || ''),
+    admin_note: String(o.admin_note || '')
+  };
+}
+
 function adminReconcileList_(body){
   requireAdmin_(body);
   const sh = getReconSheet_();
   const values = sh.getDataRange().getValues();
   if (values.length < 2) return { ok:true, rows:[] };
   const header = values[0].map(String);
-  const rows = values.slice(1).map(r => mapRow_(header, r)).reverse();
+  const rows = values.slice(1).map(r => mapReconRow_(header, r)).reverse();
   return { ok:true, rows };
 }
 
@@ -556,7 +584,7 @@ function findReconRowById_(requestId){
 
 function adminApproveReconcile_(body){
   requireAdmin_(body);
-  const requestId = String(body.request_id || '').trim();
+  const requestId = String(body.request_id || body.requestId || '').trim();
   if (!requestId) return { ok:false, error:'request_id wajib.' };
 
   const hit = findReconRowById_(requestId);
@@ -589,7 +617,7 @@ function adminApproveReconcile_(body){
 
   hit.sh.getRange(hit.rowIndex, idx('status')+1).setValue('APPROVED');
   hit.sh.getRange(hit.rowIndex, idx('approved_at')+1).setValue(new Date());
-  hit.sh.getRange(hit.rowIndex, idx('approved_by')+1).setValue('admin');
+  hit.sh.getRange(hit.rowIndex, idx('approved_by')+1).setValue(String(body.admin_user || 'admin'));
   hit.sh.getRange(hit.rowIndex, idx('admin_note')+1).setValue(adminNote);
 
   return { ok:true, message:'Permohonan rekonsil disetujui dan attendance dicatat sebagai REKONSIL.' };
@@ -597,7 +625,7 @@ function adminApproveReconcile_(body){
 
 function adminRejectReconcile_(body){
   requireAdmin_(body);
-  const requestId = String(body.request_id || '').trim();
+  const requestId = String(body.request_id || body.requestId || '').trim();
   if (!requestId) return { ok:false, error:'request_id wajib.' };
 
   const hit = findReconRowById_(requestId);
@@ -610,7 +638,7 @@ function adminRejectReconcile_(body){
 
   hit.sh.getRange(hit.rowIndex, idx('status')+1).setValue('REJECTED');
   hit.sh.getRange(hit.rowIndex, idx('approved_at')+1).setValue(new Date());
-  hit.sh.getRange(hit.rowIndex, idx('approved_by')+1).setValue('admin');
+  hit.sh.getRange(hit.rowIndex, idx('approved_by')+1).setValue(String(body.admin_user || 'admin'));
   hit.sh.getRange(hit.rowIndex, idx('admin_note')+1).setValue(String(body.admin_note || '').trim());
 
   return { ok:true, message:'Permohonan rekonsil ditolak.' };

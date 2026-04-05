@@ -21,6 +21,13 @@ function clearPresensiFailCount(){
   localStorage.removeItem(PRESENSI_FAIL_COUNT_KEY);
   localStorage.removeItem(PRESENSI_FAIL_CTX_KEY);
 }
+function clearPresensiReconSubmitted(){
+  localStorage.removeItem(PRESENSI_RECON_SUBMITTED_KEY);
+}
+function resetPresensiFailureTracking(){
+  clearPresensiFailCount();
+  clearPresensiReconSubmitted();
+}
 function todayKeyLocal_(){
   const d = new Date();
   const y = d.getFullYear();
@@ -86,7 +93,7 @@ async function submitReconcileRequest(){
     if (!r.ok) throw new Error(r.error || 'Pengajuan rekonsil gagal');
     if (result) result.innerHTML = `✅ ${escapeHtml(r.message || 'Permohonan berhasil diajukan.')}<br><b>${escapeHtml(r.nama || '')}</b>`;
     markReconSubmittedToday();
-    clearPresensiFailCount();
+    resetPresensiFailureTracking();
   }catch(err){
     if (result) result.innerHTML = `❌ ${escapeHtml(String(err.message || err))}`;
   }
@@ -95,7 +102,7 @@ function trackRecognitionFailure(ctx = {}){
   const next = getPresensiFailCount() + 1;
   setPresensiFailCount(next);
   try{ localStorage.setItem(PRESENSI_FAIL_CTX_KEY, JSON.stringify(ctx || {})); }catch(e){}
-  if (next >= 5 && !getReconSubmittedToday()){
+  if (next >= 5){
     openReconcileModal(ctx);
   }
 }
@@ -174,7 +181,7 @@ async function doPresensi(){
 
       if (r.ok){
         clearPresensiFail();
-        clearPresensiFailCount();
+        resetPresensiFailureTracking();
 
         UI.setResult(
           `Presensi diterima: <b>${escapeHtml(r.nama)}</b> (NIK: ${escapeHtml(r.nik)})<br/>
