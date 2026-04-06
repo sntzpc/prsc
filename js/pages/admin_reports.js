@@ -199,3 +199,41 @@ async function adminDeleteFailedAttendance(){
   await adminLogs().catch(()=>{});
   await adminLoadReconcile().catch(()=>{});
 }
+
+async function adminPreviewReconcileDuplicates(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  const r = await api('adminReconcileDuplicatesPreview', { admin_token: State.adminToken });
+  if (!r.ok) throw new Error(r.error || 'Gagal memeriksa rekonsil ganda');
+  const el = document.getElementById('reconcile-dup-summary');
+  const sample = Array.isArray(r.sample) ? r.sample : [];
+  let msg = r.message || '';
+  if (sample.length){
+    const first = sample.slice(0,3).map(x => `${x.nik} | ${x.tanggal} | ${x.mode}${x.gate_direction ? ' ' + x.gate_direction : ''} | hapus ${x.duplicates_to_delete}`).join(' ; ');
+    msg += ` Contoh: ${first}`;
+  }
+  if (el) el.textContent = msg;
+  alert(msg);
+  return r;
+}
+
+async function adminCleanupReconcileDuplicates(){
+  if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
+  const preview = await api('adminReconcileDuplicatesPreview', { admin_token: State.adminToken });
+  if (!preview.ok) throw new Error(preview.error || 'Gagal memeriksa rekonsil ganda');
+  const el = document.getElementById('reconcile-dup-summary');
+  const previewMsg = preview.message || '';
+  if (el) el.textContent = previewMsg;
+  if (!preview.duplicate_rows){
+    alert(previewMsg || 'Tidak ada data rekonsil ganda.');
+    return;
+  }
+  const ok = window.confirm(`${previewMsg}
+
+Lanjut hapus data rekonsil ganda sekarang?`);
+  if (!ok) return;
+  const r = await api('adminCleanupReconcileDuplicates', { admin_token: State.adminToken });
+  if (!r.ok) throw new Error(r.error || 'Gagal membersihkan rekonsil ganda');
+  if (el) el.textContent = r.message || '';
+  alert(r.message || 'Pembersihan rekonsil ganda selesai.');
+  await adminLoadReconcile().catch(()=>{});
+}

@@ -298,6 +298,18 @@ function initAdminModal(){
     { text:'Memuat…', overlay:true, overlayText:'Memuat permohonan rekonsil…' }
   ));
 
+  $('#btn-reconcile-dup-preview')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-reconcile-dup-preview'),
+    async()=> await adminPreviewReconcileDuplicates(),
+    { text:'Memeriksa…', overlay:true, overlayText:'Menganalisis data rekonsil ganda…' }
+  ));
+
+  $('#btn-reconcile-dup-clean')?.addEventListener('click', ()=> Busy.wrap(
+    $('#btn-reconcile-dup-clean'),
+    async()=> await adminCleanupReconcileDuplicates(),
+    { text:'Membersihkan…', overlay:true, overlayText:'Menghapus data rekonsil ganda…' }
+  ));
+
   $('#btn-delete-failed-att')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-delete-failed-att'),
     async()=> await adminDeleteFailedAttendance(),

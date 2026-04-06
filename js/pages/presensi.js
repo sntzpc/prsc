@@ -10,6 +10,7 @@ const AUTO_PRESENSI_DELAY_MS = 2000;
 const PRESENSI_FAIL_COUNT_KEY = 'presensi_fail_face_count';
 const PRESENSI_FAIL_CTX_KEY = 'presensi_fail_face_ctx';
 const PRESENSI_RECON_SUBMITTED_KEY = 'presensi_recon_submitted_today';
+let reconcileSubmitInFlight = false;
 
 function getPresensiFailCount(){
   return Number(localStorage.getItem(PRESENSI_FAIL_COUNT_KEY) || 0) || 0;
@@ -66,10 +67,23 @@ async function submitReconcileRequest(){
   const nik = ($('#reconcile-nik')?.value || '').trim();
   const request_note = ($('#reconcile-note')?.value || '').trim();
   const result = $('#reconcile-result');
+  const btn = $('#btn-reconcile-submit');
+
+  if (reconcileSubmitInFlight){
+    if (result) result.innerHTML = 'Pengajuan rekonsil sedang diproses. Mohon tunggu…';
+    return;
+  }
+
+  if (getReconSubmittedToday()){
+    if (result) result.innerHTML = 'Permohonan rekonsil untuk perangkat ini hari ini sudah pernah diajukan.';
+    return;
+  }
+
   if (!nik){
     if (result) result.innerHTML = 'NIK wajib diisi.';
     return;
   }
+
   let ctx = {};
   try{ ctx = JSON.parse(localStorage.getItem(PRESENSI_FAIL_CTX_KEY) || '{}') || {}; }catch(e){}
   const payload = {
@@ -88,14 +102,29 @@ async function submitReconcileRequest(){
     lng: State.loc?.lng,
     accuracy_m: State.loc?.accuracy_m
   };
+
+  const prevText = btn?.textContent || 'Ajukan Rekonsil';
+  reconcileSubmitInFlight = true;
+  if (btn){
+    btn.disabled = true;
+    btn.textContent = 'Mengajukan…';
+  }
+
   try{
     const r = await api('submitReconcile', payload);
     if (!r.ok) throw new Error(r.error || 'Pengajuan rekonsil gagal');
     if (result) result.innerHTML = `✅ ${escapeHtml(r.message || 'Permohonan berhasil diajukan.')}<br><b>${escapeHtml(r.nama || '')}</b>`;
     markReconSubmittedToday();
     resetPresensiFailureTracking();
+    setTimeout(()=> closeReconcileModal(), 900);
   }catch(err){
     if (result) result.innerHTML = `❌ ${escapeHtml(String(err.message || err))}`;
+  }finally{
+    reconcileSubmitInFlight = false;
+    if (btn){
+      btn.disabled = false;
+      btn.textContent = prevText;
+    }
   }
 }
 function trackRecognitionFailure(ctx = {}){

@@ -31,6 +31,16 @@ const DEDUP_TTL_SEC = 180;
 // Window menit yang dianggap sama: ±1 menit
 const DEDUP_WINDOW_MIN = 1;
 
+function withScriptLock_(fn, waitMs){
+  const lock = LockService.getScriptLock();
+  lock.waitLock(Number(waitMs || 15000));
+  try {
+    return fn();
+  } finally {
+    try { lock.releaseLock(); } catch(e) {}
+  }
+}
+
 
 function doGet(e) {
   try {
@@ -87,6 +97,8 @@ function handleApi_(body){
   if (action === 'adminApproveReconcile') return json_(adminApproveReconcile_(body));
   if (action === 'adminRejectReconcile') return json_(adminRejectReconcile_(body));
   if (action === 'adminDeleteFailedAttendance') return json_(adminDeleteFailedAttendance_(body));
+  if (action === 'adminReconcileDuplicatesPreview') return json_(adminReconcileDuplicatesPreview_(body));
+  if (action === 'adminCleanupReconcileDuplicates') return json_(adminCleanupReconcileDuplicates_(body));
 
     // admin protected - NEW
   if (action === 'adminUpdateSettings') return json_(adminUpdateSettings_(body));
@@ -208,6 +220,10 @@ function doPost(e) {
     if (action === 'adminApproveReconcile') return json_(adminApproveReconcile_(body));
     if (action === 'adminRejectReconcile') return json_(adminRejectReconcile_(body));
     if (action === 'adminDeleteFailedAttendance') return json_(adminDeleteFailedAttendance_(body));
+    if (action === 'adminReconcileDuplicatesPreview') return json_(adminReconcileDuplicatesPreview_(body));
+    if (action === 'adminCleanupReconcileDuplicates') return json_(adminCleanupReconcileDuplicates_(body));
+  if (action === 'adminReconcileDuplicatesPreview') return json_(adminReconcileDuplicatesPreview_(body));
+  if (action === 'adminCleanupReconcileDuplicates') return json_(adminCleanupReconcileDuplicates_(body));
 
       // admin protected - NEW
     if (action === 'adminUpdateSettings') return json_(adminUpdateSettings_(body));
@@ -471,77 +487,80 @@ function findNameByNik_(nik){
 }
 
 function submitReconcile_(body){
-  const nik = String(body.nik || '').trim();
-  if (!nik) return { ok:false, error:'NIK wajib diisi.' };
+  return withScriptLock_(function(){
+    const nik = String(body.nik || '').trim();
+    if (!nik) return { ok:false, error:'NIK wajib diisi.' };
 
-  const nama = findNameByNik_(nik);
-  if (!nama) return { ok:false, error:'NIK tidak ditemukan pada data peserta/users.' };
+    const nama = findNameByNik_(nik);
+    if (!nama) return { ok:false, error:'NIK tidak ditemukan pada data peserta/users.' };
 
-  const sh = getReconSheet_();
-  const values = sh.getDataRange().getValues();
-  const header = values[0].map(String);
-  const rows = values.slice(1);
+    const sh = getReconSheet_();
+    const values = sh.getDataRange().getValues();
+    const header = values[0].map(String);
+    const rows = values.slice(1);
 
-  const idxNik = header.indexOf('nik');
-  const idxMode = header.indexOf('mode');
-  const idxStatus = header.indexOf('status');
-  const idxRequestedAt = header.indexOf('requested_at');
-  const idxGateDirection = header.indexOf('gate_direction');
+    const idxNik = header.indexOf('nik');
+    const idxMode = header.indexOf('mode');
+    const idxStatus = header.indexOf('status');
+    const idxRequestedAt = header.indexOf('requested_at');
+    const idxGateDirection = header.indexOf('gate_direction');
 
-  const now = new Date();
-  const tz = Session.getScriptTimeZone();
-  const todayKey = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
-  const mode = String(body.mode || 'training').trim().toLowerCase();
-  const gateDirection = String(body.gate_direction || '').trim().toUpperCase();
+    const now = new Date();
+    const tz = Session.getScriptTimeZone();
+    const todayKey = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+    const mode = String(body.mode || 'training').trim().toLowerCase();
+    const gateDirection = String(body.gate_direction || '').trim().toUpperCase();
 
-  for (let i=0;i<rows.length;i++){
-    const r = rows[i];
-    const st = String(r[idxStatus] || '').trim().toUpperCase();
-    if (!(st === 'PENDING' || st === 'APPROVED')) continue;
+    for (let i=0;i<rows.length;i++){
+      const r = rows[i];
+      const st = String(r[idxStatus] || '').trim().toUpperCase();
+      if (!(st === 'PENDING' || st === 'APPROVED')) continue;
 
-    const ts = r[idxRequestedAt] instanceof Date ? r[idxRequestedAt] : new Date(r[idxRequestedAt]);
-    const dkey = isNaN(ts.getTime()) ? '' : Utilities.formatDate(ts, tz, 'yyyy-MM-dd');
-    if (String(r[idxNik]||'').trim() !== nik) continue;
-    if (String(r[idxMode]||'').trim().toLowerCase() !== mode) continue;
-    if (dkey !== todayKey) continue;
+      const ts = r[idxRequestedAt] instanceof Date ? r[idxRequestedAt] : new Date(r[idxRequestedAt]);
+      const dkey = isNaN(ts.getTime()) ? '' : Utilities.formatDate(ts, tz, 'yyyy-MM-dd');
+      if (String(r[idxNik]||'').trim() !== nik) continue;
+      if (String(r[idxMode]||'').trim().toLowerCase() !== mode) continue;
+      if (dkey !== todayKey) continue;
 
-    if (mode === 'gate'){
-      const rowDir = String((idxGateDirection >= 0 ? r[idxGateDirection] : '') || '').trim().toUpperCase();
-      if (rowDir === gateDirection){
-        return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode gate dengan gate direction yang sama hari ini sudah ada.' };
+      if (mode === 'gate'){
+        const rowDir = String((idxGateDirection >= 0 ? r[idxGateDirection] : '') || '').trim().toUpperCase();
+        if (rowDir === gateDirection){
+          return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode gate dengan gate direction yang sama hari ini sudah ada.' };
+        }
+        continue;
       }
-      continue;
+
+      return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode training hari ini sudah ada.' };
     }
 
-    return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode training hari ini sudah ada.' };
-  }
+    const reqId = createReconId_();
+    sh.appendRow([
+      reqId,
+      now,
+      nik,
+      nama,
+      mode,
+      String(body.training_type || ''),
+      String(body.activity || ''),
+      String(body.material || ''),
+      String(body.gate_reason || ''),
+      String(body.gate_direction || ''),
+      String(body.device_id || ''),
+      Number(body.lat || '') || '',
+      Number(body.lng || '') || '',
+      Number(body.accuracy_m || '') || '',
+      String(body.last_status || ''),
+      Number(body.fail_count || 0) || 0,
+      String(body.request_note || ''),
+      'PENDING',
+      '',
+      '',
+      ''
+    ]);
 
-  const reqId = createReconId_();
-  sh.appendRow([
-    reqId,
-    now,
-    nik,
-    nama,
-    mode,
-    String(body.training_type || ''),
-    String(body.activity || ''),
-    String(body.material || ''),
-    String(body.gate_reason || ''),
-    String(body.gate_direction || ''),
-    String(body.device_id || ''),
-    Number(body.lat || '') || '',
-    Number(body.lng || '') || '',
-    Number(body.accuracy_m || '') || '',
-    String(body.last_status || ''),
-    Number(body.fail_count || 0) || 0,
-    String(body.request_note || ''),
-    'PENDING',
-    '',
-    '',
-    ''
-  ]);
-
-  return { ok:true, request_id:reqId, nama, nik, message:'Permohonan rekonsil berhasil diajukan.' };
+    SpreadsheetApp.flush();
+    return { ok:true, request_id:reqId, nama, nik, message:'Permohonan rekonsil berhasil diajukan.' };
+  }, 15000);
 }
 
 function mapReconRow_(header, row){
@@ -660,6 +679,158 @@ function adminRejectReconcile_(body){
   hit.sh.getRange(hit.rowIndex, idx('admin_note')+1).setValue(String(body.admin_note || '').trim());
 
   return { ok:true, message:'Permohonan rekonsil ditolak.' };
+}
+
+
+function buildReconDuplicateAnalysis_(){
+  const sh = getReconSheet_();
+  const values = sh.getDataRange().getValues();
+  if (values.length < 2) return { sh: sh, header: values[0] || [], groups: [], deleteRows: [] };
+
+  const header = values[0].map(String);
+  const rows = values.slice(1);
+  const idx = (k)=> header.indexOf(k);
+  const tz = Session.getScriptTimeZone();
+
+  function normDateKey_(v){
+    if (!v) return '';
+    const d = (v instanceof Date) ? v : new Date(v);
+    if (isNaN(d.getTime())) return '';
+    return Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+  }
+
+  function scoreStatus_(st){
+    st = String(st || '').trim().toUpperCase();
+    if (st === 'APPROVED') return 3;
+    if (st === 'PENDING') return 2;
+    if (st === 'REJECTED') return 1;
+    return 0;
+  }
+
+  function chooseKeeper_(items){
+    return items.slice().sort(function(a,b){
+      const sa = scoreStatus_(a.status);
+      const sb = scoreStatus_(b.status);
+      if (sb !== sa) return sb - sa;
+      const ta = a.requestedAtMs;
+      const tb = b.requestedAtMs;
+      if (ta && tb && ta !== tb) return ta - tb;
+      if (ta && !tb) return -1;
+      if (!ta && tb) return 1;
+      return a.rowIndex - b.rowIndex;
+    })[0];
+  }
+
+  const map = {};
+  rows.forEach(function(r, i){
+    const rowIndex = i + 2;
+    const nik = String(r[idx('nik')] || '').trim();
+    const mode = String(r[idx('mode')] || '').trim().toLowerCase();
+    const dateKey = normDateKey_(r[idx('requested_at')]);
+    const gateDir = mode === 'gate' ? String(r[idx('gate_direction')] || '').trim().toUpperCase() : '';
+    if (!nik || !mode || !dateKey) return;
+    const key = [nik, dateKey, mode, gateDir].join('|');
+    const req = r[idx('requested_at')];
+    const reqDate = (req instanceof Date) ? req : new Date(req);
+    const requestedAtMs = isNaN(reqDate.getTime()) ? 0 : reqDate.getTime();
+    (map[key] ||= []).push({
+      key: key,
+      rowIndex: rowIndex,
+      request_id: String(r[idx('request_id')] || ''),
+      nik: nik,
+      nama: String(r[idx('nama')] || ''),
+      mode: mode,
+      gate_direction: gateDir,
+      date_key: dateKey,
+      status: String(r[idx('status')] || ''),
+      requested_at: req,
+      requestedAtMs: requestedAtMs
+    });
+  });
+
+  const groups = [];
+  const deleteRows = [];
+  Object.keys(map).forEach(function(key){
+    const items = map[key];
+    if (items.length <= 1) return;
+    const keeper = chooseKeeper_(items);
+    const duplicates = items.filter(function(x){ return x.rowIndex !== keeper.rowIndex; });
+    duplicates.forEach(function(x){ deleteRows.push(x.rowIndex); });
+    groups.push({
+      key: key,
+      nik: keeper.nik,
+      nama: keeper.nama,
+      date_key: keeper.date_key,
+      mode: keeper.mode,
+      gate_direction: keeper.gate_direction,
+      total_rows: items.length,
+      duplicates_to_delete: duplicates.length,
+      keeper: {
+        rowIndex: keeper.rowIndex,
+        request_id: keeper.request_id,
+        status: keeper.status,
+        requested_at: keeper.requested_at
+      },
+      duplicate_rows: duplicates.map(function(x){
+        return { rowIndex: x.rowIndex, request_id: x.request_id, status: x.status, requested_at: x.requested_at };
+      })
+    });
+  });
+
+  groups.sort(function(a,b){
+    return String(b.date_key).localeCompare(String(a.date_key)) || String(a.nik).localeCompare(String(b.nik));
+  });
+  deleteRows.sort(function(a,b){ return b-a; });
+
+  return { sh: sh, header: header, groups: groups, deleteRows: deleteRows };
+}
+
+function adminReconcileDuplicatesPreview_(body){
+  requireAdmin_(body);
+  const analysis = buildReconDuplicateAnalysis_();
+  const sample = analysis.groups.slice(0, 20).map(function(g){
+    return {
+      nik: g.nik,
+      nama: g.nama,
+      tanggal: g.date_key,
+      mode: g.mode,
+      gate_direction: g.gate_direction,
+      total_rows: g.total_rows,
+      duplicates_to_delete: g.duplicates_to_delete,
+      keeper_request_id: g.keeper.request_id,
+      keeper_status: g.keeper.status,
+      delete_request_ids: g.duplicate_rows.map(function(x){ return x.request_id; })
+    };
+  });
+  return {
+    ok:true,
+    duplicate_groups: analysis.groups.length,
+    duplicate_rows: analysis.deleteRows.length,
+    sample: sample,
+    message: analysis.deleteRows.length
+      ? ('Ditemukan ' + analysis.groups.length + ' grup duplikat dengan ' + analysis.deleteRows.length + ' baris yang dapat dihapus.')
+      : 'Tidak ditemukan data rekonsil ganda.'
+  };
+}
+
+function adminCleanupReconcileDuplicates_(body){
+  requireAdmin_(body);
+  return withScriptLock_(function(){
+    const analysis = buildReconDuplicateAnalysis_();
+    if (!analysis.deleteRows.length){
+      return { ok:true, deleted:0, duplicate_groups:0, message:'Tidak ada data rekonsil ganda yang perlu dibersihkan.' };
+    }
+    analysis.deleteRows.forEach(function(rowIndex){
+      analysis.sh.deleteRow(rowIndex);
+    });
+    SpreadsheetApp.flush();
+    return {
+      ok:true,
+      deleted: analysis.deleteRows.length,
+      duplicate_groups: analysis.groups.length,
+      message:'Berhasil membersihkan ' + analysis.deleteRows.length + ' baris rekonsil ganda dari ' + analysis.groups.length + ' grup.'
+    };
+  }, 30000);
 }
 
 function adminDeleteFailedAttendance_(body){
