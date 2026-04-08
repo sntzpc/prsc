@@ -635,6 +635,7 @@ function adminApproveReconcile_(body){
   const adminNote = String(body.admin_note || '').trim();
 
   logAttendance_({
+    timestamp: hit.row[idx('requested_at')] || '',
     nik: String(hit.row[idx('nik')] || ''),
     nama: String(hit.row[idx('nama')] || ''),
     mode: String(hit.row[idx('mode')] || 'training'),
@@ -685,12 +686,20 @@ function adminRejectReconcile_(body){
 function buildReconDuplicateAnalysis_(){
   const sh = getReconSheet_();
   const values = sh.getDataRange().getValues();
-  if (values.length < 2) return { sh: sh, header: values[0] || [], groups: [], deleteRows: [] };
+  if (values.length < 2) {
+    return { sh: sh, header: values[0] || [], groups: [], deleteRows: [] };
+  }
 
-  const header = values[0].map(String);
+  const header = values[0].map(function(x){ return String(x).trim(); });
   const rows = values.slice(1);
-  const idx = (k)=> header.indexOf(k);
+  const idx = function(k){ return header.indexOf(k); };
   const tz = Session.getScriptTimeZone();
+
+  const requiredHeaders = ['nik', 'mode', 'requested_at', 'gate_direction', 'request_id', 'nama', 'status'];
+  const missingHeaders = requiredHeaders.filter(function(k){ return idx(k) === -1; });
+  if (missingHeaders.length) {
+    throw new Error('Header sheet rekonsil tidak lengkap: ' + missingHeaders.join(', '));
+  }
 
   function normDateKey_(v){
     if (!v) return '';
@@ -708,32 +717,41 @@ function buildReconDuplicateAnalysis_(){
   }
 
   function chooseKeeper_(items){
-    return items.slice().sort(function(a,b){
+    return items.slice().sort(function(a, b){
       const sa = scoreStatus_(a.status);
       const sb = scoreStatus_(b.status);
       if (sb !== sa) return sb - sa;
+
       const ta = a.requestedAtMs;
       const tb = b.requestedAtMs;
       if (ta && tb && ta !== tb) return ta - tb;
       if (ta && !tb) return -1;
       if (!ta && tb) return 1;
+
       return a.rowIndex - b.rowIndex;
     })[0];
   }
 
-  const map = {};
+  const grouped = {};
   rows.forEach(function(r, i){
     const rowIndex = i + 2;
+
     const nik = String(r[idx('nik')] || '').trim();
     const mode = String(r[idx('mode')] || '').trim().toLowerCase();
-    const dateKey = normDateKey_(r[idx('requested_at')]);
-    const gateDir = mode === 'gate' ? String(r[idx('gate_direction')] || '').trim().toUpperCase() : '';
-    if (!nik || !mode || !dateKey) return;
-    const key = [nik, dateKey, mode, gateDir].join('|');
     const req = r[idx('requested_at')];
+    const dateKey = normDateKey_(req);
+    const gateDir = mode === 'gate'
+      ? String(r[idx('gate_direction')] || '').trim().toUpperCase()
+      : '';
+
+    if (!nik || !mode || !dateKey) return;
+
+    const key = [nik, dateKey, mode, gateDir].join('|');
     const reqDate = (req instanceof Date) ? req : new Date(req);
     const requestedAtMs = isNaN(reqDate.getTime()) ? 0 : reqDate.getTime();
-    (map[key] ||= []).push({
+
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push({
       key: key,
       rowIndex: rowIndex,
       request_id: String(r[idx('request_id')] || ''),
@@ -750,12 +768,20 @@ function buildReconDuplicateAnalysis_(){
 
   const groups = [];
   const deleteRows = [];
-  Object.keys(map).forEach(function(key){
-    const items = map[key];
+
+  Object.keys(grouped).forEach(function(key){
+    const items = grouped[key];
     if (items.length <= 1) return;
+
     const keeper = chooseKeeper_(items);
-    const duplicates = items.filter(function(x){ return x.rowIndex !== keeper.rowIndex; });
-    duplicates.forEach(function(x){ deleteRows.push(x.rowIndex); });
+    const duplicates = items.filter(function(x){
+      return x.rowIndex !== keeper.rowIndex;
+    });
+
+    duplicates.forEach(function(x){
+      deleteRows.push(x.rowIndex);
+    });
+
     groups.push({
       key: key,
       nik: keeper.nik,
@@ -772,17 +798,31 @@ function buildReconDuplicateAnalysis_(){
         requested_at: keeper.requested_at
       },
       duplicate_rows: duplicates.map(function(x){
-        return { rowIndex: x.rowIndex, request_id: x.request_id, status: x.status, requested_at: x.requested_at };
+        return {
+          rowIndex: x.rowIndex,
+          request_id: x.request_id,
+          status: x.status,
+          requested_at: x.requested_at
+        };
       })
     });
   });
 
-  groups.sort(function(a,b){
-    return String(b.date_key).localeCompare(String(a.date_key)) || String(a.nik).localeCompare(String(b.nik));
+  groups.sort(function(a, b){
+    return String(b.date_key).localeCompare(String(a.date_key)) ||
+           String(a.nik).localeCompare(String(b.nik));
   });
-  deleteRows.sort(function(a,b){ return b-a; });
 
-  return { sh: sh, header: header, groups: groups, deleteRows: deleteRows };
+  deleteRows.sort(function(a, b){
+    return b - a;
+  });
+
+  return {
+    sh: sh,
+    header: header,
+    groups: groups,
+    deleteRows: deleteRows
+  };
 }
 
 function adminReconcileDuplicatesPreview_(body){
@@ -1616,8 +1656,16 @@ function logAttendance_(rec){
 
   ensureAttHeader_(sh);
 
+  let ts = rec && rec.timestamp;
+  if (!(ts instanceof Date)) {
+    ts = ts ? new Date(ts) : new Date();
+  }
+  if (!(ts instanceof Date) || isNaN(ts.getTime())) {
+    ts = new Date();
+  }
+
   sh.appendRow([
-    new Date(),
+    ts,
     rec.nik || '',
     rec.nama || '',
     rec.mode || '',

@@ -113,12 +113,20 @@ async function adminLoadReconcile(){
       const statusReq = String(x.status || '');
       const canAct = statusReq.toUpperCase() === 'PENDING';
       const note = [x.request_note, x.admin_note].filter(Boolean).join(' | ');
+      const trainingType = String(x.training_type || '').trim();
+      const activity = String(x.activity || '').trim();
+      const gateReason = String(x.gate_reason || '').trim();
+      const gateDirection = String(x.gate_direction || '').trim();
       return `
         <tr>
           <td>${escapeHtml(x.requested_at || '')}</td>
           <td>${escapeHtml(x.nik || '')}</td>
           <td>${escapeHtml(x.nama || '')}</td>
           <td>${escapeHtml(x.mode || '')}</td>
+          <td>${escapeHtml(trainingType || '-')}</td>
+          <td>${escapeHtml(activity || '-')}</td>
+          <td>${escapeHtml(gateReason || '-')}</td>
+          <td>${escapeHtml(gateDirection || '-')}</td>
           <td>${escapeHtml(x.last_status || '')}</td>
           <td><b>${escapeHtml(statusReq)}</b></td>
           <td>${escapeHtml(note || '-')}</td>
@@ -133,7 +141,7 @@ async function adminLoadReconcile(){
     }).join('');
 
     if (!rows.length){
-      tbody.innerHTML = '<tr><td colspan="8" class="small muted">Tidak ada data rekonsil untuk filter ini.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" class="small muted">Tidak ada data rekonsil untuk filter ini.</td></tr>';
     }
 
     if (!tbody.dataset.bound){
