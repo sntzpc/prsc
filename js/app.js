@@ -313,7 +313,7 @@ function initAdminModal(){
   $('#btn-delete-failed-att')?.addEventListener('click', ()=> Busy.wrap(
     $('#btn-delete-failed-att'),
     async()=> await adminDeleteFailedAttendance(),
-    { text:'Menghapus…', overlay:true, overlayText:'Membersihkan data gagal di attendance…' }
+    { text:'Memindahkan…', overlay:true, overlayText:'Memindahkan data gagal ke log_hapus lalu membersihkan attendance…' }
   ));
 
   $('#btn-d-preview')?.addEventListener('click', ()=> Busy.wrap(

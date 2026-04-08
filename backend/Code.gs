@@ -440,6 +440,27 @@ function ensureAttHeader_(sh){
   if (empty) sh.getRange(1,1,1,expected.length).setValues([expected]);
 }
 
+function ensureDeleteLogHeader_(sh, attendanceHeader){
+  const auditCols = ['deleted_at','deleted_by','delete_action','delete_reason','source_sheet','source_row'];
+  const attCols = Array.isArray(attendanceHeader) && attendanceHeader.length
+    ? attendanceHeader.map(function(x){ return String(x || '').trim(); })
+    : ['timestamp','nik','nama','mode','training_type','activity','material','gate_reason','gate_direction','device_id','lat','lng','accuracy_m','distance_m','liveness','status'];
+  const expected = auditCols.concat(attCols);
+  const header = sh.getRange(1,1,1,expected.length).getValues()[0];
+  const current = header.map(function(x){ return String(x || '').trim(); });
+  const empty = current.join('').trim() === '';
+  const mismatch = !empty && expected.some(function(name, i){ return current[i] !== name; });
+  if (empty || mismatch) sh.getRange(1,1,1,expected.length).setValues([expected]);
+  return expected;
+}
+
+function getDeleteLogSheet_(attendanceHeader){
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName('log_hapus');
+  if (!sh) sh = ss.insertSheet('log_hapus');
+  ensureDeleteLogHeader_(sh, attendanceHeader);
+  return sh;
+}
 
 function ensureReconHeader_(sh){
   const expected = ['request_id','requested_at','nik','nama','mode','training_type','activity','material','gate_reason','gate_direction','device_id','lat','lng','accuracy_m','last_status','fail_count','request_note','status','approved_at','approved_by','admin_note'];
@@ -876,43 +897,80 @@ function adminCleanupReconcileDuplicates_(body){
 function adminDeleteFailedAttendance_(body){
   requireAdmin_(body);
 
-  const ss = SpreadsheetApp.getActive();
-  const sh = ss.getSheetByName(SHEET_ATT);
-  if (!sh) return { ok:true, deleted:0, message:'Sheet attendance belum ada.' };
+  return withScriptLock_(function(){
+    const ss = SpreadsheetApp.getActive();
+    const sh = ss.getSheetByName(SHEET_ATT);
+    if (!sh) return { ok:true, deleted:0, moved:0, message:'Sheet attendance belum ada.' };
 
-  const values = sh.getDataRange().getValues();
-  if (values.length < 2) return { ok:true, deleted:0, message:'Tidak ada data untuk dibersihkan.' };
+    const values = sh.getDataRange().getValues();
+    if (values.length < 2) return { ok:true, deleted:0, moved:0, message:'Tidak ada data untuk dibersihkan.' };
 
-  const header = values[0].map(String);
-  const idxNik = header.indexOf('nik');
-  const idxNama = header.indexOf('nama');
-  const idxStatus = header.indexOf('status');
-
-  const shouldDelete = (row)=>{
-    const nik = String(row[idxNik] || '').trim();
-    const nama = String(row[idxNama] || '').trim();
-    const st = String(row[idxStatus] || '').trim().toUpperCase();
-    const blankIdentity = (!nik && !nama);
-    const faceFail = (
-      st === 'FACE_NOT_MATCH' ||
-      st === 'FACE_AMBIGUOUS' ||
-      st === 'LIVENESS_FAIL' ||
-      st === 'LIVENESS_MODE_MISMATCH' ||
-      st === 'OUT_OF_FENCE_FACE_NOT_MATCH' ||
-      st === 'OUT_OF_FENCE_FACE_AMBIGUOUS'
-    );
-    return blankIdentity || faceFail;
-  };
-
-  let deleted = 0;
-  for (let r = values.length; r >= 2; r--){
-    if (shouldDelete(values[r-1])){
-      sh.deleteRow(r);
-      deleted++;
+    const header = values[0].map(function(x){ return String(x || '').trim(); });
+    const idxNik = header.indexOf('nik');
+    const idxNama = header.indexOf('nama');
+    const idxStatus = header.indexOf('status');
+    if (idxNik < 0 || idxNama < 0 || idxStatus < 0){
+      return { ok:false, error:'Header attendance tidak lengkap. Minimal wajib ada kolom nik, nama, dan status.' };
     }
-  }
 
-  return { ok:true, deleted, message: deleted ? ('Berhasil menghapus ' + deleted + ' data gagal dari attendance.') : 'Tidak ada data gagal yang perlu dihapus.' };
+    const shouldDelete = function(row){
+      const nik = String(row[idxNik] || '').trim();
+      const nama = String(row[idxNama] || '').trim();
+      const st = String(row[idxStatus] || '').trim().toUpperCase();
+      const blankIdentity = (!nik && !nama);
+      const faceFail = (
+        st === 'FACE_NOT_MATCH' ||
+        st === 'FACE_AMBIGUOUS' ||
+        st === 'LIVENESS_FAIL' ||
+        st === 'LIVENESS_MODE_MISMATCH' ||
+        st === 'OUT_OF_FENCE_FACE_NOT_MATCH' ||
+        st === 'OUT_OF_FENCE_FACE_AMBIGUOUS'
+      );
+      return blankIdentity || faceFail;
+    };
+
+    const rowsToMove = [];
+    const rowNumbers = [];
+    for (let i = 1; i < values.length; i++){
+      const row = values[i];
+      if (!shouldDelete(row)) continue;
+      rowNumbers.push(i + 1);
+      rowsToMove.push(row);
+    }
+
+    if (!rowsToMove.length){
+      return { ok:true, deleted:0, moved:0, message:'Tidak ada data gagal yang perlu dipindahkan.' };
+    }
+
+    const logSh = getDeleteLogSheet_(header);
+    const deletedAt = new Date();
+    const deletedBy = String(body.admin_user || body.admin_name || body.admin_nik || 'admin').trim() || 'admin';
+    const deleteReason = 'FAILED_ATTENDANCE_CLEANUP';
+    const auditRows = rowsToMove.map(function(row, idx){
+      return [
+        deletedAt,
+        deletedBy,
+        'MOVE_FROM_ATTENDANCE',
+        deleteReason,
+        SHEET_ATT,
+        rowNumbers[idx]
+      ].concat(row);
+    });
+    logSh.getRange(logSh.getLastRow() + 1, 1, auditRows.length, auditRows[0].length).setValues(auditRows);
+
+    for (let i = rowNumbers.length - 1; i >= 0; i--){
+      sh.deleteRow(rowNumbers[i]);
+    }
+    SpreadsheetApp.flush();
+
+    return {
+      ok:true,
+      deleted: rowNumbers.length,
+      moved: auditRows.length,
+      log_sheet: 'log_hapus',
+      message: 'Berhasil memindahkan ' + auditRows.length + ' data gagal dari attendance ke sheet log_hapus lalu menghapusnya dari attendance.'
+    };
+  }, 30000);
 }
 
 /* =========================
