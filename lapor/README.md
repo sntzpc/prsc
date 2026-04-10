@@ -39,8 +39,8 @@ Lalu buka folder ZIP hasil extract, misalnya:
 `http://localhost:8000/`
 
 ## Catatan logika absensi
-- **Masuk** = jam paling awal dengan `gate_direction = IN`, fallback ke timestamp pertama hari itu.
-- **Keluar** = jam paling akhir dengan `gate_direction = OUT`, fallback ke timestamp terakhir hari itu.
+- **Masuk** = jam pertama dengan `gate_direction = IN`.
+- **Keluar** = jam pertama dengan `gate_direction = OUT`.
 - Jika filter kosong, aplikasi menampilkan semua data yang tersedia.
 
 ## Nama file unduhan
@@ -50,7 +50,7 @@ Lalu buka folder ZIP hasil extract, misalnya:
 
 ## Revisi tambahan
 - Normalisasi field frontend dibuat case-insensitive agar data tetap terbaca walau bentuk header dari GAS berubah.
-- Jika `gate_direction` kosong, laporan tetap mencoba menampilkan pasangan data pertama dan kedua pada tanggal yang sama.
+- Jika pada tanggal tersebut hanya ada `IN` tanpa `OUT`, maka kolom Keluar akan tetap kosong. Begitu juga sebaliknya.
 - Backend memakai `getDisplayValues()` agar tanggal/jam dari sheet tidak bergeser.
 
 

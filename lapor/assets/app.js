@@ -386,9 +386,12 @@ function buildRenderedData() {
       const ins = records.filter(r => String(r.gate_direction || '').toUpperCase() === 'IN');
       const outs = records.filter(r => String(r.gate_direction || '').toUpperCase() === 'OUT');
 
-      // Sesuai kebutuhan: ambil data pertama untuk IN dan data pertama untuk OUT.
-      const masuk = ins[0]?.timestamp || records[0]?.timestamp || '';
-      const keluar = outs[0]?.timestamp || (records.length > 1 ? records[1]?.timestamp || '' : '');
+      // Logika final:
+      // - Masuk  = timestamp pertama dengan gate_direction IN.
+      // - Keluar = timestamp pertama dengan gate_direction OUT.
+      // - Jika tidak ada IN/OUT yang sesuai, jangan pakai record lain sebagai fallback silang.
+      const masuk = ins[0]?.timestamp || '';
+      const keluar = outs[0]?.timestamp || '';
 
       daily[date] = {
         masuk: fmtTime(masuk),
