@@ -199,7 +199,7 @@ async function adminRejectReconcile(requestId, adminNote=''){
 
 async function adminDeleteFailedAttendance(){
   if (!isAdminSessionValid()) throw new Error('Sesi admin habis. Login ulang.');
-  if (!window.confirm('Pindahkan data attendance yang gagal / identitas kosong ke sheet log_hapus lalu hapus dari attendance?')) return;
+  if (!window.confirm('Pindahkan data attendance yang gagal, identitas kosong, atau berstatus DUPLICATE_ATTEMPT ke sheet log_hapus lalu hapus dari attendance?')) return;
   const r = await api('adminDeleteFailedAttendance', { admin_token: State.adminToken });
   if (!r.ok) throw new Error(r.error || 'Gagal menghapus data gagal');
   alert(r.message || 'Pembersihan selesai.');

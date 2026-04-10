@@ -219,9 +219,13 @@ async function doPresensi(){
           true
         );
 
+        const successHtml = (String(r.status || '') === 'AUTO_RECONCILE_GAGAL_CATAT')
+          ? `Presensi tervalidasi<br/><b>${escapeHtml(r.nama)}</b><br/><span class="small">Gagal catat ke attendance. Sistem otomatis mengajukan rekonsil${r.request_id ? ' #' + escapeHtml(r.request_id) : ''}.</span>`
+          : `Presensi diterima<br/><b>${escapeHtml(r.nama)}</b><br/><span class="small">Modal akan menutup otomatis…</span>`;
+
         camOutcomeShow(true,
-          `Presensi diterima<br/><b>${escapeHtml(r.nama)}</b><br/><span class="small">Modal akan menutup otomatis…</span>`,
-          { delayOkMs: 1600, closeOnOk: true }
+          successHtml,
+          { delayOkMs: 2000, closeOnOk: true }
         );
 
       } else {

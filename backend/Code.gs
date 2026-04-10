@@ -507,80 +507,102 @@ function findNameByNik_(nik){
   return '';
 }
 
-function submitReconcile_(body){
-  return withScriptLock_(function(){
-    const nik = String(body.nik || '').trim();
-    if (!nik) return { ok:false, error:'NIK wajib diisi.' };
+function appendReconcileRequest_(body, opts){
+  opts = opts || {};
+  const nik = String(body.nik || '').trim();
+  if (!nik) return { ok:false, error:'NIK wajib diisi.' };
 
-    const nama = findNameByNik_(nik);
-    if (!nama) return { ok:false, error:'NIK tidak ditemukan pada data peserta/users.' };
+  let nama = String(body.nama || '').trim();
+  if (!nama && opts.resolveName !== false) nama = findNameByNik_(nik);
+  if (!nama) return { ok:false, error:'NIK tidak ditemukan pada data peserta/users.' };
 
-    const sh = getReconSheet_();
-    const values = sh.getDataRange().getValues();
-    const header = values[0].map(String);
-    const rows = values.slice(1);
+  const sh = getReconSheet_();
+  const values = sh.getDataRange().getValues();
+  const header = values[0].map(String);
+  const rows = values.slice(1);
 
-    const idxNik = header.indexOf('nik');
-    const idxMode = header.indexOf('mode');
-    const idxStatus = header.indexOf('status');
-    const idxRequestedAt = header.indexOf('requested_at');
-    const idxGateDirection = header.indexOf('gate_direction');
+  const idxNik = header.indexOf('nik');
+  const idxMode = header.indexOf('mode');
+  const idxStatus = header.indexOf('status');
+  const idxRequestedAt = header.indexOf('requested_at');
+  const idxGateDirection = header.indexOf('gate_direction');
+  const idxRequestId = header.indexOf('request_id');
+  const idxNama = header.indexOf('nama');
 
-    const now = new Date();
-    const tz = Session.getScriptTimeZone();
-    const todayKey = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
-    const mode = String(body.mode || 'training').trim().toLowerCase();
-    const gateDirection = String(body.gate_direction || '').trim().toUpperCase();
+  const now = body.requested_at instanceof Date ? body.requested_at : new Date(body.requested_at || new Date());
+  const tz = Session.getScriptTimeZone();
+  const todayKey = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  const mode = String(body.mode || 'training').trim().toLowerCase();
+  const gateDirection = String(body.gate_direction || '').trim().toUpperCase();
 
-    for (let i=0;i<rows.length;i++){
-      const r = rows[i];
-      const st = String(r[idxStatus] || '').trim().toUpperCase();
-      if (!(st === 'PENDING' || st === 'APPROVED')) continue;
+  for (let i=0;i<rows.length;i++){
+    const r = rows[i];
+    const st = String(r[idxStatus] || '').trim().toUpperCase();
+    if (!(st === 'PENDING' || st === 'APPROVED')) continue;
 
-      const ts = r[idxRequestedAt] instanceof Date ? r[idxRequestedAt] : new Date(r[idxRequestedAt]);
-      const dkey = isNaN(ts.getTime()) ? '' : Utilities.formatDate(ts, tz, 'yyyy-MM-dd');
-      if (String(r[idxNik]||'').trim() !== nik) continue;
-      if (String(r[idxMode]||'').trim().toLowerCase() !== mode) continue;
-      if (dkey !== todayKey) continue;
+    const ts = r[idxRequestedAt] instanceof Date ? r[idxRequestedAt] : new Date(r[idxRequestedAt]);
+    const dkey = isNaN(ts.getTime()) ? '' : Utilities.formatDate(ts, tz, 'yyyy-MM-dd');
+    if (String(r[idxNik]||'').trim() !== nik) continue;
+    if (String(r[idxMode]||'').trim().toLowerCase() !== mode) continue;
+    if (dkey !== todayKey) continue;
 
-      if (mode === 'gate'){
-        const rowDir = String((idxGateDirection >= 0 ? r[idxGateDirection] : '') || '').trim().toUpperCase();
-        if (rowDir === gateDirection){
-          return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode gate dengan gate direction yang sama hari ini sudah ada.' };
-        }
-        continue;
+    if (mode === 'gate'){
+      const rowDir = String((idxGateDirection >= 0 ? r[idxGateDirection] : '') || '').trim().toUpperCase();
+      if (rowDir === gateDirection){
+        return {
+          ok:false,
+          duplicate:true,
+          existing_request_id: String((idxRequestId >= 0 ? r[idxRequestId] : '') || '').trim(),
+          nik,
+          nama: String((idxNama >= 0 ? r[idxNama] : nama) || nama).trim(),
+          error:'Permohonan rekonsil untuk NIK ini pada mode gate dengan gate direction yang sama hari ini sudah ada.'
+        };
       }
-
-      return { ok:false, error:'Permohonan rekonsil untuk NIK ini pada mode training hari ini sudah ada.' };
+      continue;
     }
 
-    const reqId = createReconId_();
-    sh.appendRow([
-      reqId,
-      now,
+    return {
+      ok:false,
+      duplicate:true,
+      existing_request_id: String((idxRequestId >= 0 ? r[idxRequestId] : '') || '').trim(),
       nik,
-      nama,
-      mode,
-      String(body.training_type || ''),
-      String(body.activity || ''),
-      String(body.material || ''),
-      String(body.gate_reason || ''),
-      String(body.gate_direction || ''),
-      String(body.device_id || ''),
-      Number(body.lat || '') || '',
-      Number(body.lng || '') || '',
-      Number(body.accuracy_m || '') || '',
-      String(body.last_status || ''),
-      Number(body.fail_count || 0) || 0,
-      String(body.request_note || ''),
-      'PENDING',
-      '',
-      '',
-      ''
-    ]);
+      nama: String((idxNama >= 0 ? r[idxNama] : nama) || nama).trim(),
+      error:'Permohonan rekonsil untuk NIK ini pada mode training hari ini sudah ada.'
+    };
+  }
 
-    SpreadsheetApp.flush();
-    return { ok:true, request_id:reqId, nama, nik, message:'Permohonan rekonsil berhasil diajukan.' };
+  const reqId = createReconId_();
+  sh.appendRow([
+    reqId,
+    now,
+    nik,
+    nama,
+    mode,
+    String(body.training_type || ''),
+    String(body.activity || ''),
+    String(body.material || ''),
+    String(body.gate_reason || ''),
+    String(body.gate_direction || ''),
+    String(body.device_id || ''),
+    Number(body.lat || '') || '',
+    Number(body.lng || '') || '',
+    Number(body.accuracy_m || '') || '',
+    String(body.last_status || ''),
+    Number(body.fail_count || 0) || 0,
+    String(body.request_note || ''),
+    String(body.status || 'PENDING') || 'PENDING',
+    body.approved_at || '',
+    String(body.approved_by || ''),
+    String(body.admin_note || '')
+  ]);
+
+  SpreadsheetApp.flush();
+  return { ok:true, request_id:reqId, nama, nik, message:'Permohonan rekonsil berhasil diajukan.' };
+}
+
+function submitReconcile_(body){
+  return withScriptLock_(function(){
+    return appendReconcileRequest_(body, { resolveName:true });
   }, 15000);
 }
 
@@ -926,7 +948,8 @@ function adminDeleteFailedAttendance_(body){
         st === 'OUT_OF_FENCE_FACE_NOT_MATCH' ||
         st === 'OUT_OF_FENCE_FACE_AMBIGUOUS'
       );
-      return blankIdentity || faceFail;
+      const duplicateAttempt = (st === 'DUPLICATE_ATTEMPT');
+      return blankIdentity || faceFail || duplicateAttempt;
     };
 
     const rowsToMove = [];
@@ -1506,7 +1529,7 @@ function verifyAndLog_(body){
   }
 
   // log OK
-  logAttendance_({
+  const okRec = {
     nik:match.nik, nama:match.nama,
     mode,
     training_type:String(body.training_type||''),
@@ -1517,8 +1540,27 @@ function verifyAndLog_(body){
     device_id: deviceId,
     lat, lng, accuracy_m:accuracy, distance_m:distM,
     liveness: JSON.stringify(liveness),
-    status: okStatus
-  });
+    status: okStatus,
+    timestamp: nowTs
+  };
+  const attWrite = logAttendance_(okRec);
+  if (!attWrite.ok){
+    const recon = queueAutoReconcileOnAttendanceWriteFail_(okRec, attWrite.error);
+    const reconHandled = !!(recon && (recon.ok || recon.duplicate));
+    return {
+      ok:true,
+      nik: match.nik,
+      nama: match.nama,
+      inFence,
+      distance_m: distM,
+      status:'AUTO_RECONCILE_GAGAL_CATAT',
+      request_id: recon && (recon.request_id || recon.existing_request_id) || '',
+      write_error: attWrite.error || '',
+      message: reconHandled
+        ? 'Presensi tervalidasi, tetapi gagal dicatat ke attendance. Sistem otomatis mengarahkan ke rekonsil dengan catatan Gagal catat.'
+        : 'Presensi tervalidasi, tetapi gagal dicatat ke attendance dan gagal membuat rekonsil otomatis. Segera cek server/database.'
+    };
+  }
 
   return {
     ok:true,
@@ -1722,7 +1764,7 @@ function logAttendance_(rec){
     ts = new Date();
   }
 
-  sh.appendRow([
+  const row = [
     ts,
     rec.nik || '',
     rec.nama || '',
@@ -1739,7 +1781,41 @@ function logAttendance_(rec){
     rec.distance_m || '',
     rec.liveness || '',
     rec.status || ''
-  ]);
+  ];
+
+  try {
+    sh.appendRow(row);
+    SpreadsheetApp.flush();
+    return { ok:true, timestamp:ts };
+  } catch (err) {
+    return { ok:false, timestamp:ts, error:String(err && err.message ? err.message : err) };
+  }
+}
+
+function queueAutoReconcileOnAttendanceWriteFail_(rec, writeErr){
+  return withScriptLock_(function(){
+    const payload = {
+      requested_at: (rec && rec.timestamp instanceof Date) ? rec.timestamp : new Date(rec && rec.timestamp ? rec.timestamp : new Date()),
+      nik: String(rec && rec.nik || '').trim(),
+      nama: String(rec && rec.nama || '').trim(),
+      mode: String(rec && rec.mode || 'training').trim().toLowerCase(),
+      training_type: String(rec && rec.training_type || ''),
+      activity: String(rec && rec.activity || ''),
+      material: String(rec && rec.material || ''),
+      gate_reason: String(rec && rec.gate_reason || ''),
+      gate_direction: String(rec && rec.gate_direction || ''),
+      device_id: String(rec && rec.device_id || ''),
+      lat: rec && rec.lat,
+      lng: rec && rec.lng,
+      accuracy_m: rec && rec.accuracy_m,
+      last_status: 'GAGAL_CATAT_ATTENDANCE',
+      fail_count: 1,
+      request_note: 'Gagal catat',
+      status: 'PENDING',
+      admin_note: String(writeErr || '')
+    };
+    return appendReconcileRequest_(payload, { resolveName:false });
+  }, 15000);
 }
 
 /* =========================
