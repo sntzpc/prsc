@@ -35,3 +35,21 @@
 #reportTable .holiday { background: rgba(239, 68, 68, 0.12) !important; }
 #reportTable .subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 #reportTable tbody tr:nth-child(even) { background: rgba(148, 163, 184, 0.04); }
+
+#scoreTable th, #scoreTable td {
+  border:1px solid rgb(226 232 240); padding:.5rem .6rem; vertical-align:middle; white-space:nowrap;
+}
+.dark #scoreTable th, .dark #scoreTable td { border-color: rgb(51 65 85); }
+#scoreTable thead th { background: rgb(248 250 252); }
+.dark #scoreTable thead th { background: rgb(15 23 42); }
+#scoreTable .sticky-col { position: sticky; left: 0; z-index: 3; background: inherit; min-width:56px; }
+#scoreTable .sticky-col-2 { position: sticky; left: 56px; z-index: 3; background: inherit; min-width:114px; }
+#scoreTable .sticky-col-3 { position: sticky; left: 170px; z-index: 3; background: inherit; min-width:250px; }
+#scoreTable .holiday { background: rgba(239, 68, 68, 0.12) !important; }
+#scoreTable .subhead { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+#scoreTable tbody tr:nth-child(even) { background: rgba(148, 163, 184, 0.04); }
+.score-total-head { min-width: 90px; }
+.score-green { background:#bbf7d0 !important; color:#14532d !important; }
+.score-yellow { background:#fef08a !important; color:#713f12 !important; }
+.score-red { background:#fecaca !important; color:#7f1d1d !important; }
+.score-black { background:#111827 !important; color:#ffffff !important; }

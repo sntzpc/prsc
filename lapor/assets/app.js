@@ -162,6 +162,97 @@ function fmtTime(value) {
   if (m) return `${m[1].padStart(2, '0')}.${m[2]}`;
   return '';
 }
+
+
+function timeToMinutes(value) {
+  const time = fmtTime(value);
+  if (!time) return null;
+  const [hh, mm] = time.split('.').map(Number);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return (hh * 60) + mm;
+}
+
+function scoreInTime(value) {
+  const minutes = timeToMinutes(value);
+  if (minutes === null) return '';
+  const start = (5 * 60);       // 05.00
+  const end = (7 * 60);         // 07.00
+  return (minutes >= start && minutes <= end) ? 2 : 1;
+}
+
+function scoreOutTime(value) {
+  const minutes = timeToMinutes(value);
+  if (minutes === null) return '';
+  const start = (11 * 60);      // 11.00
+  const end = (23 * 60) + 59;   // 23.59
+  return (minutes >= start && minutes <= end) ? 2 : 0;
+}
+
+function buildScoreDaily(daily, dateList) {
+  const scoreDaily = {};
+  let total = 0;
+  let hasAnyScore = false;
+
+  dateList.forEach(date => {
+    const masuk = daily?.[date]?.masuk || '';
+    const keluar = daily?.[date]?.keluar || '';
+    const inScore = scoreInTime(masuk);
+    const outScore = scoreOutTime(keluar);
+
+    if (inScore !== '') {
+      total += Number(inScore);
+      hasAnyScore = true;
+    }
+    if (outScore !== '') {
+      total += Number(outScore);
+      hasAnyScore = true;
+    }
+
+    scoreDaily[date] = {
+      in: inScore,
+      out: outScore,
+      total: (inScore === '' && outScore === '') ? '' : (Number(inScore || 0) + Number(outScore || 0))
+    };
+  });
+
+  return {
+    scoreDaily,
+    rawTotalScore: hasAnyScore ? total : '',
+    finalScore: hasAnyScore ? Math.min(100, total) : ''
+  };
+}
+
+function getScoreClass(score) {
+  if (score === '' || score === null || score === undefined) return '';
+  const value = Number(score);
+  if (Number.isNaN(value)) return '';
+  if (value > 90) return 'score-green';
+  if (value > 75) return 'score-yellow';
+  if (value > 60) return 'score-red';
+  return 'score-black';
+}
+
+function getScoreFillColor(score) {
+  const cls = getScoreClass(score);
+  if (cls === 'score-green') return 'BBF7D0';
+  if (cls === 'score-yellow') return 'FEF08A';
+  if (cls === 'score-red') return 'FECACA';
+  if (cls === 'score-black') return '111827';
+  return null;
+}
+
+function getScorePdfFillColor(score) {
+  const cls = getScoreClass(score);
+  if (cls === 'score-green') return [187, 247, 208];
+  if (cls === 'score-yellow') return [254, 240, 138];
+  if (cls === 'score-red') return [254, 202, 202];
+  if (cls === 'score-black') return [17, 24, 39];
+  return null;
+}
+
+function getScorePdfTextColor(score) {
+  return getScoreClass(score) === 'score-black' ? [255, 255, 255] : [15, 23, 42];
+}
 function fmtDateLong(isoDate) {
   const [y, m, d] = String(isoDate || '').split('-').map(Number);
   if (!y || !m || !d) return '';
@@ -399,10 +490,14 @@ function buildRenderedData() {
         totalRecords: records.length
       };
     });
+    const score = buildScoreDaily(daily, dateList);
     return {
       no: index + 1,
       ...peserta,
-      daily
+      daily,
+      scoreDaily: score.scoreDaily,
+      rawTotalScore: score.rawTotalScore,
+      finalScore: score.finalScore
     };
   });
 
@@ -482,6 +577,61 @@ function renderTable(rendered) {
   $('summaryDates').textContent = dateList.length;
   $('summaryProgram').textContent = rendered.titleProgram || '-';
   $('summarySource').textContent = state.source;
+  renderScoreTable(rendered);
+}
+
+function renderScoreTable(rendered) {
+  const scoreTable = $('scoreTable');
+  if (!scoreTable || !rendered) return;
+  const { rows, dateList } = rendered;
+
+  const topHead = [];
+  const subHead = [];
+  topHead.push('<tr>');
+  subHead.push('<tr>');
+  const fixedHeaders = [
+    { label: 'No', sticky: 'sticky-col' },
+    { label: 'NIK', sticky: 'sticky-col-2' },
+    { label: 'Nama', sticky: 'sticky-col-3' },
+    { label: 'Program' },
+    { label: 'Unit' },
+    { label: 'Region' }
+  ];
+  fixedHeaders.forEach(head => topHead.push(`<th rowspan="2" class="${head.sticky || ''}">${head.label}</th>`));
+
+  dateList.forEach(date => {
+    const [yy, mm, dd] = date.split('-').map(Number);
+    const d = new Date(yy, mm - 1, dd);
+    const holidayClass = isHolidayColumn(date) ? 'holiday' : '';
+    const dayLabel = d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' });
+    const weekDay = d.toLocaleDateString('id-ID', { weekday: 'short' });
+    topHead.push(`<th colspan="2" class="${holidayClass}"><div class="font-semibold">${dayLabel}</div><div class="subhead">${weekDay}</div></th>`);
+    subHead.push(`<th class="${holidayClass}">In</th><th class="${holidayClass}">Out</th>`);
+  });
+  topHead.push('<th rowspan="2" class="score-total-head">Nilai</th>');
+  topHead.push('</tr>');
+  subHead.push('</tr>');
+
+  const body = rows.map(item => {
+    const scoreClass = getScoreClass(item.finalScore);
+    const base = [
+      `<td class="sticky-col text-center font-semibold">${item.no}</td>`,
+      `<td class="sticky-col-2 font-medium">${item.nik}</td>`,
+      `<td class="sticky-col-3">${item.nama}</td>`,
+      `<td>${item.jenis_pelatihan || ''}</td>`,
+      `<td>${item.unit || ''}</td>`,
+      `<td>${item.region || ''}</td>`
+    ];
+    dateList.forEach(date => {
+      const holidayClass = isHolidayColumn(date) ? 'holiday' : '';
+      base.push(`<td class="${holidayClass} text-center">${item.scoreDaily?.[date]?.in ?? ''}</td>`);
+      base.push(`<td class="${holidayClass} text-center">${item.scoreDaily?.[date]?.out ?? ''}</td>`);
+    });
+    base.push(`<td class="text-center font-bold ${scoreClass}">${item.finalScore === '' ? '' : item.finalScore}</td>`);
+    return `<tr>${base.join('')}</tr>`;
+  }).join('');
+
+  scoreTable.innerHTML = `<thead>${topHead.join('')}${subHead.join('')}</thead><tbody>${body}</tbody>`;
 }
 
 async function fetchFromGas() {
@@ -544,11 +694,8 @@ function getHolidayLegend(date) {
   return '';
 }
 
-function exportXlsx() {
-  if (!state.rendered) return alert('Data belum tersedia.');
-  setProgress(20, 'Menyiapkan file XLSX...');
-  const { rows, dateList, title } = state.rendered;
-
+function buildAttendanceSheetData(rendered) {
+  const { rows, dateList, title } = rendered;
   const wsData = [];
   wsData.push([title]);
   wsData.push([`Dicetak: ${new Date().toLocaleString('id-ID')}`]);
@@ -563,36 +710,67 @@ function exportXlsx() {
 
   rows.forEach(row => {
     const line = [row.no, row.nik, row.nama, row.jenis_pelatihan || '', row.unit || '', row.region || ''];
-    dateList.forEach(date => {
-      line.push(row.daily[date]?.masuk || '', row.daily[date]?.keluar || '');
-    });
+    dateList.forEach(date => line.push(row.daily[date]?.masuk || '', row.daily[date]?.keluar || ''));
     wsData.push(line);
   });
+  return wsData;
+}
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+function buildScoreSheetData(rendered) {
+  const { rows, dateList, title } = rendered;
+  const wsData = [];
+  wsData.push([title.replace('LAPORAN HARIAN ABSENSI', 'MATRIKS NILAI PRESENSI')]);
+  wsData.push([`Dicetak: ${new Date().toLocaleString('id-ID')}`]);
+  wsData.push(['Ketentuan: IN 05.00-07.00 = 2, selain itu = 1. OUT 11.00-23.59 = 2, lebih cepat = 0. Jam kosong tetap kosong. Kolom Nilai adalah jumlah skor dan dibatasi maksimal 100.']);
+  const head1 = ['No', 'NIK', 'Nama', 'Program', 'Unit', 'Region'];
+  const head2 = ['', '', '', '', '', ''];
+  dateList.forEach(date => {
+    head1.push(date, null);
+    head2.push('In', 'Out');
+  });
+  head1.push('Nilai');
+  head2.push('');
+  wsData.push(head1);
+  wsData.push(head2);
+
+  rows.forEach(row => {
+    const line = [row.no, row.nik, row.nama, row.jenis_pelatihan || '', row.unit || '', row.region || ''];
+    dateList.forEach(date => line.push(row.scoreDaily?.[date]?.in ?? '', row.scoreDaily?.[date]?.out ?? ''));
+    line.push(row.finalScore === '' ? '' : row.finalScore);
+    wsData.push(line);
+  });
+  return wsData;
+}
+
+function applyCommonWorksheetStyle(ws, dateList, titleRows = 2, hasFinalScore = false) {
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  const lastCol = range.e.c;
   ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(5, 5 + (dateList.length * 2)) } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: Math.max(5, 5 + (dateList.length * 2)) } },
+    { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: lastCol } },
+    ...(titleRows === 3 ? [{ s: { r: 2, c: 0 }, e: { r: 2, c: lastCol } }] : []),
     ...dateList.map((_, idx) => ({
-      s: { r: 2, c: 6 + (idx * 2) },
-      e: { r: 2, c: 7 + (idx * 2) }
+      s: { r: titleRows, c: 6 + (idx * 2) },
+      e: { r: titleRows, c: 7 + (idx * 2) }
     }))
   ];
   ws['!cols'] = [
     { wch: 6 }, { wch: 14 }, { wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 12 },
-    ...dateList.flatMap(() => [{ wch: 8 }, { wch: 8 }])
+    ...dateList.flatMap(() => [{ wch: 8 }, { wch: 8 }]),
+    ...(hasFinalScore ? [{ wch: 10 }] : [])
   ];
-
-  // styling
-  const range = XLSX.utils.decode_range(ws['!ref']);
   for (let c = 0; c <= range.e.c; c++) {
     const titleCell = XLSX.utils.encode_cell({ r: 0, c });
     if (ws[titleCell]) ws[titleCell].s = { font: { bold: true, sz: 16 }, alignment: { horizontal: 'center' } };
     const subtitleCell = XLSX.utils.encode_cell({ r: 1, c });
     if (ws[subtitleCell]) ws[subtitleCell].s = { alignment: { horizontal: 'center' } };
+    if (titleRows === 3) {
+      const noteCell = XLSX.utils.encode_cell({ r: 2, c });
+      if (ws[noteCell]) ws[noteCell].s = { alignment: { horizontal: 'center', wrapText: true }, font: { italic: true } };
+    }
   }
   for (let c = 0; c <= range.e.c; c++) {
-    [2, 3].forEach(r => {
+    [titleRows, titleRows + 1].forEach(r => {
       const addr = XLSX.utils.encode_cell({ r, c });
       if (!ws[addr]) return;
       ws[addr].s = {
@@ -602,26 +780,54 @@ function exportXlsx() {
       };
     });
   }
-
   dateList.forEach((date, idx) => {
     if (!isHolidayColumn(date)) return;
     const startCol = 6 + idx * 2;
-    for (let r = 2; r <= range.e.r; r++) {
+    for (let r = titleRows; r <= range.e.r; r++) {
       for (let c = startCol; c <= startCol + 1; c++) {
         const addr = XLSX.utils.encode_cell({ r, c });
         if (!ws[addr]) ws[addr] = { t: 's', v: '' };
-        ws[addr].s = Object.assign({}, ws[addr].s || {}, {
-          fill: { fgColor: { rgb: 'FECACA' } }
-        });
+        ws[addr].s = Object.assign({}, ws[addr].s || {}, { fill: { fgColor: { rgb: 'FECACA' } } });
       }
     }
   });
+}
+
+function applyScoreWorksheetStyle(ws, rendered) {
+  const { rows, dateList } = rendered;
+  const startRow = 5;
+  const scoreCol = 6 + (dateList.length * 2);
+  rows.forEach((row, i) => {
+    const addr = XLSX.utils.encode_cell({ r: startRow + i, c: scoreCol });
+    if (!ws[addr]) return;
+    const fill = getScoreFillColor(row.finalScore);
+    if (!fill) return;
+    ws[addr].s = Object.assign({}, ws[addr].s || {}, {
+      font: { bold: true, color: { rgb: getScoreClass(row.finalScore) === 'score-black' ? 'FFFFFF' : '0F172A' } },
+      alignment: { horizontal: 'center' },
+      fill: { fgColor: { rgb: fill } }
+    });
+  });
+}
+
+function exportXlsx() {
+  if (!state.rendered) return alert('Data belum tersedia.');
+  setProgress(20, 'Menyiapkan file XLSX...');
+  const { dateList } = state.rendered;
+
+  const ws = XLSX.utils.aoa_to_sheet(buildAttendanceSheetData(state.rendered));
+  applyCommonWorksheetStyle(ws, dateList, 2, false);
+
+  const scoreWs = XLSX.utils.aoa_to_sheet(buildScoreSheetData(state.rendered));
+  applyCommonWorksheetStyle(scoreWs, dateList, 3, true);
+  applyScoreWorksheetStyle(scoreWs, state.rendered);
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
+  XLSX.utils.book_append_sheet(wb, ws, 'Laporan Jam');
+  XLSX.utils.book_append_sheet(wb, scoreWs, 'Matriks Nilai');
   const filename = `Laporan_Harian_Absensi_${fileDateStamp()}.xlsx`;
   XLSX.writeFile(wb, filename, { cellStyles: true });
-  setProgress(100, 'File XLSX berhasil diunduh.');
+  setProgress(100, 'File XLSX berhasil diunduh dengan sheet Laporan Jam dan Matriks Nilai.');
 }
 
 function exportPdf() {
@@ -633,7 +839,7 @@ function exportPdf() {
   // Ukuran kertas fleksibel agar seluruh kolom dan baris muat dalam satu halaman.
   const fixedColWidths = [26, 60, 120, 80, 50, 55];
   const dynamicColWidth = 32; // per kolom Masuk/Keluar
-  const tableWidth = fixedColWidths.reduce((a, b) => a + b, 0) + (dateList.length * 2 * dynamicColWidth);
+  const tableWidth = fixedColWidths.reduce((a, b) => a + b, 0) + (dateList.length * 2 * dynamicColWidth) + 42;
   const pageWidth = Math.max(842, tableWidth + 60); // margin kiri-kanan
   const rowHeight = 16;
   const headerHeight = 56;
@@ -730,9 +936,101 @@ ${new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'short' })
     tableWidth: 'auto'
   });
 
+  addScoreMatrixPdfPage(doc, rows, dateList, title, fixedColWidths, dynamicColWidth, pageWidth, pageHeight);
+
   const filename = `Laporan_Harian_Absensi_${fileDateStamp()}.pdf`;
   doc.save(filename);
-  setProgress(100, 'File PDF berhasil diunduh.');
+  setProgress(100, 'File PDF berhasil diunduh dengan halaman Laporan Jam dan Matriks Nilai.');
+}
+
+function addScoreMatrixPdfPage(doc, rows, dateList, title, fixedColWidths, dynamicColWidth, pageWidth, pageHeight) {
+  doc.addPage([pageWidth, pageHeight], pageWidth >= pageHeight ? 'landscape' : 'portrait');
+  const scoreTitle = title.replace('LAPORAN HARIAN ABSENSI', 'MATRIKS NILAI PRESENSI');
+  doc.setFontSize(16);
+  doc.text(scoreTitle, pageWidth / 2, 28, { align: 'center' });
+  doc.setFontSize(9);
+  doc.text('Ketentuan: IN 05.00-07.00 = 2, selain itu = 1. OUT 11.00-23.59 = 2, lebih cepat = 0. Jam kosong tetap kosong. Nilai maksimal 100.', 30, 48);
+
+  const head = [
+    [
+      { content: 'No', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'NIK', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'Nama', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'Program', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'Unit', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      { content: 'Region', rowSpan: 2, styles: { halign: 'center', valign: 'middle' } },
+      ...dateList.map(date => ({
+        content: `${new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' })}
+${new Date(`${date}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'short' })}`,
+        colSpan: 2,
+        styles: {
+          halign: 'center',
+          valign: 'middle',
+          fillColor: isHolidayColumn(date) ? [254, 202, 202] : [226, 232, 240]
+        }
+      })),
+      { content: 'Nilai', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fillColor: [203, 213, 225] } }
+    ],
+    [
+      ...dateList.flatMap(date => ([
+        { content: 'In', styles: { halign: 'center', valign: 'middle', fillColor: isHolidayColumn(date) ? [254, 202, 202] : [241, 245, 249] } },
+        { content: 'Out', styles: { halign: 'center', valign: 'middle', fillColor: isHolidayColumn(date) ? [254, 202, 202] : [241, 245, 249] } }
+      ]))
+    ]
+  ];
+
+  const body = rows.map(row => [
+    row.no,
+    row.nik,
+    row.nama,
+    row.jenis_pelatihan || '',
+    row.unit || '',
+    row.region || '',
+    ...dateList.flatMap(date => [row.scoreDaily?.[date]?.in ?? '', row.scoreDaily?.[date]?.out ?? '']),
+    row.finalScore === '' ? '' : row.finalScore
+  ]);
+
+  const columnStyles = {
+    0: { cellWidth: fixedColWidths[0], halign: 'center' },
+    1: { cellWidth: fixedColWidths[1] },
+    2: { cellWidth: fixedColWidths[2] },
+    3: { cellWidth: fixedColWidths[3] },
+    4: { cellWidth: fixedColWidths[4] },
+    5: { cellWidth: fixedColWidths[5] }
+  };
+  for (let i = 0; i < dateList.length * 2; i++) columnStyles[6 + i] = { cellWidth: dynamicColWidth, halign: 'center' };
+  columnStyles[6 + (dateList.length * 2)] = { cellWidth: 42, halign: 'center', fontStyle: 'bold' };
+
+  doc.autoTable({
+    startY: 62,
+    head,
+    body,
+    theme: 'grid',
+    styles: { fontSize: 7, cellPadding: 3, overflow: 'linebreak', valign: 'middle' },
+    headStyles: { fillColor: [226, 232, 240], textColor: [15, 23, 42], fontStyle: 'bold' },
+    columnStyles,
+    didParseCell(data) {
+      if (data.section === 'body') {
+        if (data.column.index >= 6 && data.column.index < 6 + (dateList.length * 2)) {
+          data.cell.styles.halign = 'center';
+          const dateIndex = Math.floor((data.column.index - 6) / 2);
+          const date = dateList[dateIndex];
+          if (isHolidayColumn(date)) data.cell.styles.fillColor = [254, 242, 242];
+        }
+        if (data.column.index === 6 + (dateList.length * 2)) {
+          const score = rows[data.row.index]?.finalScore;
+          const fill = getScorePdfFillColor(score);
+          if (fill) data.cell.styles.fillColor = fill;
+          data.cell.styles.textColor = getScorePdfTextColor(score);
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
+    margin: { left: 30, right: 30, top: 62, bottom: 20 },
+    pageBreak: 'avoid',
+    rowPageBreak: 'avoid',
+    tableWidth: 'auto'
+  });
 }
 
 async function init() {
