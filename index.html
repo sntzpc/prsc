@@ -1,399 +1,1174 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Alamat Website Kami Telah Berubah</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Presensi Training Center</title>
 
-    :root {
-      --bg: #f7f5f0;
-      --card: #ffffff;
-      --border: rgba(0,0,0,0.07);
-      --accent: #1a6b45;
-      --accent-light: #eaf4ee;
-      --accent-mid: rgba(26,107,69,0.12);
-      --accent2: #f4a024;
-      --text: #1a1a18;
-      --muted: #7a7a72;
-      --shadow: 0 20px 60px rgba(26,107,69,0.1), 0 4px 20px rgba(0,0,0,0.06);
-    }
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ctext y='54' x='6' font-size='56'%3E📸%3C/text%3E%3C/svg%3E" />
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* Subtle background pattern */
-    body::before {
-      content: '';
-      position: fixed; inset: 0; z-index: 0;
-      background-image:
-        radial-gradient(circle at 20% 20%, rgba(26,107,69,0.06) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(244,160,36,0.07) 0%, transparent 50%),
-        radial-gradient(circle at 60% 10%, rgba(26,107,69,0.04) 0%, transparent 40%);
-      pointer-events: none;
-    }
-
-    /* Decorative circles */
-    .deco {
-      position: fixed; border-radius: 50%; pointer-events: none; z-index: 0;
-      animation: floatDeco 12s ease-in-out infinite alternate;
-    }
-    .deco-1 {
-      width: 400px; height: 400px;
-      border: 1px solid rgba(26,107,69,0.1);
-      top: -120px; right: -120px;
-      animation-delay: 0s;
-    }
-    .deco-2 {
-      width: 280px; height: 280px;
-      border: 1px solid rgba(26,107,69,0.08);
-      top: -60px; right: -60px;
-      animation-delay: -3s;
-    }
-    .deco-3 {
-      width: 350px; height: 350px;
-      border: 1px solid rgba(244,160,36,0.1);
-      bottom: -120px; left: -120px;
-      animation-delay: -6s;
-    }
-
-    @keyframes floatDeco {
-      from { transform: translate(0,0) rotate(0deg); }
-      to   { transform: translate(15px, -20px) rotate(8deg); }
-    }
-
-    /* Card */
-    .card {
-      position: relative; z-index: 1;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 32px;
-      padding: 0;
-      max-width: 620px;
-      width: calc(100% - 40px);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      animation: fadeUp 0.85s cubic-bezier(.22,1,.36,1) both;
-    }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(32px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Top accent bar */
-    .top-bar {
-      height: 5px;
-      background: linear-gradient(90deg, var(--accent), #2fa86e, var(--accent2));
-    }
-
-    .card-inner { padding: 52px 52px 48px; text-align: center; }
-
-    /* Icon */
-    .icon-wrap {
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 80px; height: 80px;
-      background: var(--accent-light);
-      border-radius: 50%;
-      border: 1.5px solid rgba(26,107,69,0.15);
-      margin-bottom: 28px;
-    }
-
-    /* Badge */
-    .badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 11.5px;
-      font-weight: 500;
-      letter-spacing: 0.13em;
-      text-transform: uppercase;
-      color: var(--accent);
-      background: var(--accent-light);
-      border: 1px solid rgba(26,107,69,0.18);
-      border-radius: 100px;
-      padding: 5px 14px;
-      margin-bottom: 22px;
-    }
-    .badge-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--accent);
-      animation: pulse 1.8s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%,100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: 0.4; transform: scale(0.65); }
-    }
-
-    /* Heading */
-    h1 {
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      font-size: clamp(1.75rem, 4.5vw, 2.6rem);
-      line-height: 1.15;
-      letter-spacing: -0.02em;
-      color: var(--text);
-      margin-bottom: 16px;
-    }
-    h1 span { color: var(--accent); }
-
-    p.desc {
-      font-size: 15.5px;
-      line-height: 1.8;
-      color: var(--muted);
-      max-width: 460px;
-      margin: 0 auto 36px;
-    }
-
-    /* URL change visual */
-    .url-box {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px 24px;
-      margin: 0 auto 36px;
-      max-width: 480px;
-    }
-
-    .url-row {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 13.5px;
-    }
-    .url-row + .url-row { margin-top: 12px; }
-
-    .url-label {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      min-width: 42px;
-      color: var(--muted);
-    }
-
-    .url-chip {
-      display: flex; align-items: center; gap: 7px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 7px 12px;
-      font-family: monospace;
-      font-size: 13px;
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .url-chip.old { color: var(--muted); text-decoration: line-through; }
-    .url-chip.new { color: var(--accent); font-weight: 600; border-color: rgba(26,107,69,0.2); background: var(--accent-light); }
-
-    .url-icon {
-      flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      width: 20px; height: 20px;
-    }
-
-    .arrow-down {
-      display: flex; justify-content: center;
-      margin: 6px 0;
-    }
-    .arrow-down svg { animation: bounceDown 1.8s ease-in-out infinite; }
-    @keyframes bounceDown {
-      0%,100% { transform: translateY(0); }
-      50%      { transform: translateY(5px); }
-    }
-
-    /* Main CTA button */
-    .btn-main {
-      display: inline-flex; align-items: center; gap: 10px;
-      background: var(--accent);
-      color: #fff;
-      font-family: 'DM Sans', sans-serif;
-      font-size: 16px;
-      font-weight: 500;
-      text-decoration: none;
-      padding: 16px 36px;
-      border-radius: 100px;
-      border: none;
-      cursor: pointer;
-      margin-bottom: 20px;
-      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
-      box-shadow: 0 6px 24px rgba(26,107,69,0.3);
-      letter-spacing: 0.01em;
-    }
-    .btn-main:hover {
-      transform: translateY(-2px);
-      background: #155736;
-      box-shadow: 0 10px 32px rgba(26,107,69,0.38);
-    }
-    .btn-main:active { transform: scale(0.97); }
-
-    .btn-main svg { transition: transform 0.25s; }
-    .btn-main:hover svg { transform: translateX(4px); }
-
-    /* Countdown */
-    .countdown-wrap {
-      margin-bottom: 36px;
-    }
-    .countdown-label {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-    .countdown-timer {
-      font-size: 13px;
-      color: var(--accent);
-      font-weight: 500;
-    }
-
-    /* Divider */
-    hr {
-      border: none;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--border), transparent);
-      margin: 0 0 24px;
-    }
-
-    /* Footer note */
-    .footer-note {
-      font-size: 13px;
-      color: var(--muted);
-      line-height: 1.7;
-    }
-    .footer-note a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 500;
-      border-bottom: 1px solid rgba(26,107,69,0.25);
-    }
-    .footer-note a:hover { color: #155736; }
-
-    @media (max-width: 480px) {
-      .card-inner { padding: 36px 24px 32px; }
-      h1 { font-size: 1.65rem; }
-      .url-chip { font-size: 11px; }
-      .btn-main { font-size: 15px; padding: 14px 28px; width: 100%; justify-content: center; }
-    }
-  </style>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script src="./libs/xlsx.full.min.js"></script>
 </head>
 <body>
-
-  <div class="deco deco-1"></div>
-  <div class="deco deco-2"></div>
-  <div class="deco deco-3"></div>
-
-  <div class="card">
-    <div class="top-bar"></div>
-    <div class="card-inner">
-
-      <!-- Icon -->
-      <div class="icon-wrap">
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M18 3C9.716 3 3 9.716 3 18s6.716 15 15 15 15-6.716 15-15S26.284 3 18 3z" fill="rgba(26,107,69,0.12)" stroke="#1a6b45" stroke-width="1.5"/>
-          <path d="M18 3c0 0-5 4-5 15s5 15 5 15M18 3c0 0 5 4 5 15s-5 15-5 15" stroke="#1a6b45" stroke-width="1.5" fill="none"/>
-          <path d="M3.5 18h29" stroke="#1a6b45" stroke-width="1.5" stroke-linecap="round"/>
-          <path d="M6 11h24M6 25h24" stroke="#1a6b45" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
-        </svg>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <!--
+        <div class="logo">TC</div>
+        -->
+        <div>
+          <div class="title">Presensi Training Center</div>
+          <div class="sub">Face Recognition + GeoFencing</div>
+        </div>
       </div>
+      <div class="action-bar" id="loc-actions">
+        <span class="pill" id="loc-status">Sedang cek lokasi…</span>
+        <div class="action-buttons">
+          <button class="btnx" id="btn-checkloc" data-loading-label="Cek Lokasi…">Cek Lokasi</button>
+          <a class="btnx ghost livemap-icon"  id="btn-livemap" href="./live_map.html"  target="_blank"  rel="noopener"   title="Live Map"  aria-label="Live Map">🗺️</a>
+        </div>
+      </div>
+      <!--
+      <button id="btn-admin-open" class="btn ghost">Admin</button>
+      -->
+    </header>
 
-      <!-- Badge -->
-      <div class="badge"><span class="badge-dot"></span>Pengumuman Penting</div>
+    <div>
+          <label>Status</label>
+          <div id="result-main" class="small">-</div>
+    </div>
 
-      <!-- Heading -->
-      <h1>Alamat Website<br/>Kami Telah <span>Berubah</span></h1>
+    <main class="card">
+      <section class="pane active" id="pane-peserta">
+        <div class="grid2">
+          <div>
+            <label>Jenis Presensi</label>
+            <select id="mode">
+              <option value="training">Kegiatan Training</option>
+              <option value="gate">Mobilitas Peserta</option>
+            </select>
+          </div>
 
-      <!-- Description -->
-      <p class="desc">
-        Untuk memberikan layanan yang lebih baik, kami telah memindahkan website ke alamat baru.
-        Silakan perbarui bookmark Anda dan kunjungi kami di alamat terbaru berikut ini.
-      </p>
+          <!--
+          <div>
+            <label>Status Lokasi</label>
+            <div class="pill" id="loc-status">Belum cek lokasi</div>
+            <button id="btn-checkloc" class="btn ghost">Cek Lokasi</button>
+          </div>
+          -->
+        </div>
 
-      <!-- URL Change Visual -->
-      <div class="url-box">
-        <div class="url-row">
-          <span class="url-label">Lama</span>
-          <div class="url-chip old">
-            <span class="url-icon">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#aaa" stroke-width="1.2"/><path d="M8 5v3l2 2" stroke="#aaa" stroke-width="1.2" stroke-linecap="round"/></svg>
-            </span>
-            https://sntzpc.github.io/prsc
+        <div id="training-fields" class="box">
+          <div class="grid2">
+            <div>
+              <label>Jenis Pelatihan</label>
+              <select id="training_type">
+                <option value="">Memuat…</option>
+              </select>
+            </div>
+            <div>
+              <label>Kegiatan</label>
+              <select id="activity">
+                <option value="">Memuat…</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="material-wrap" class="mt">
+            <label>Materi (autosuggest)</label>
+            <input id="material" type="text" placeholder="Ketik beberapa huruf…"/>
+            <div id="suggest" class="suggest"></div>
           </div>
         </div>
 
-        <div class="arrow-down">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M10 4v10M6 10l4 4 4-4" stroke="#1a6b45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-
-        <div class="url-row">
-          <span class="url-label">Baru</span>
-          <div class="url-chip new">
-            <span class="url-icon">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#1a6b45" stroke-width="1.2"/><path d="M5.5 8.5l2 2 3-3.5" stroke="#1a6b45" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            pesan.kmpsatu.com
+        <div id="gate-fields" class="box hidden">
+          <div class="grid2">
+            <div>
+              <label>Keperluan</label>
+              <input id="gate_reason" type="text" placeholder="Ibadah / Berobat / Field Day / lainnya…"/>
+              <div class="hint">Cepat: <span class="chip" data-reason="Ibadah">Ibadah</span> <span class="chip" data-reason="OJT">OJT</span> <span class="chip" data-reason="Kerja">Kerja</span></div>
+            </div>
+            <div>
+              <label>Arah</label>
+              <div class="grid2">
+                <button id="btn-in" class="btn">Datang/Masuk</button>
+                <button id="btn-out" class="btn danger">Pulang/Keluar</button>
+              </div>
+              <div class="hint">Mobilitas (Masuk/Keluar) akan menjalankan pemindaian.</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Countdown -->
-      <div class="countdown-wrap">
-        <p class="countdown-label">Anda akan diarahkan otomatis dalam</p>
-        <p class="countdown-timer" id="countdown">15 detik</p>
-      </div>
+        <div class="box mt" id="pcam-box">
+        <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+            <div class="small">Kamera full-screen.</div>
+            <button id="btn-open-pcam" class="btn primary" type="button">Buka Kamera</button>
+        </div>
+        </div>
 
-      <!-- CTA Button -->
-      <a class="btn-main" href="https://presensi.kmpsatu.com" id="cta-btn">
-        Kunjungi Website Baru
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <path d="M3 9h12M10 4l5 5-5 5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <div class="box mt" id="device-info" style="font-size:12px; color:var(--mut)"></div>
+      </section>
+
+      
+      <!-- ADMIN MODAL -->
+      <div class="modal hidden" id="admin-modal">
+        <div class="modal-card">
+          <div class="modal-head">
+            <div style="font-weight:900;">Admin Panel</div>
+            <button class="btn ghost" id="btn-admin-logout">Logout</button>
+            <button class="btn ghost" id="btn-admin-close" type="button">Tutup</button>
+          </div>
+
+          <!-- LOGIN -->
+          <section id="admin-login-pane">
+            <div class="box">
+              <label>PIN Admin</label>
+              <input id="admin-pin" type="password" placeholder="Masukkan PIN…"/>
+              <div class="actions">
+                <button class="btn primary" id="btn-admin-login">Login</button>
+              </div>
+              <div class="small" id="admin-session"></div>
+            </div>
+          </section>
+
+          <!-- ADMIN CONTENT -->
+          <section id="admin-pane" class="hidden">
+            <div class="tabs2">
+                <button class="tab2 active" data-atab="enroll">Enroll</button>
+                <button class="tab2" data-atab="dashboard">Dashboard</button>
+                <button class="tab2" data-atab="rekap">Rekap</button>
+                <button class="tab2" data-atab="logs">Logs</button>
+                <button class="tab2" data-atab="settings">Settings</button>
+                <button class="tab2" data-atab="training">Training</button>
+                <button class="tab2" data-atab="materi">Materi</button>
+                <button class="tab2" data-atab="nametag">Card</button>
+            </div>
+
+            <!-- ENROLL -->
+            <div class="apane active" id="apane-enroll">
+              <div class="grid2">
+                <div>
+                  <label>NIK</label>
+                  <input id="a_nik" type="text" placeholder="NIK peserta"/>
+                </div>
+                <div>
+                  <label>Nama</label>
+                  <input id="a_nama" type="text" placeholder="Nama peserta"/>
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>Biodata (opsional)</label>
+                  <input id="a_bio" type="text" placeholder="Rayon/Divisi/Asal/Angkatan…"/>
+                </div>
+                <div>
+                  <label>Catatan</label>
+                  <input id="a_note" type="text" placeholder="Opsional"/>
+                </div>
+              </div>
+
+              <div class="box mt">
+                <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+                    <div class="small">Kamera full-screen.</div>
+                    <button id="btn-open-acam" class="btn primary" type="button">Buka Kamera</button>
+                </div>
+                </div>
+
+                <!-- ENROLL ENHANCE: Load Peserta + Auto Suggest -->
+                <div class="box mt" id="enroll-master-box">
+                  <div style="font-weight:900;margin-bottom:8px;">Master Peserta (untuk Auto-Suggest Enroll)</div>
+
+                  <div class="grid2">
+                    <div>
+                      <label>Training Type</label>
+                      <select id="e_training_type">
+                        <option value="">Pilih Training Type…</option>
+                      </select>
+                      <div class="small">Ambil dari meta peserta (server) agar pilihan konsisten.</div>
+                    </div>
+                    <div>
+                      <label>Batch / Group</label>
+                      <select id="e_group">
+                        <option value="">Pilih Batch…</option>
+                      </select>
+                      <div class="small">Filter sesuai Training Type.</div>
+                    </div>
+                  </div>
+
+                  <div class="actions mt">
+                    <button class="btn primary" id="btn-e-load" type="button">Load Peserta (Server)</button>
+                    <button class="btn" id="btn-e-clear" type="button">Clear Data Lokal</button>
+                  </div>
+
+                  <div class="small" id="e_info">Belum ada data peserta yang dimuat.</div>
+
+                  <hr style="opacity:.25;margin:14px 0;"/>
+
+                  <div style="font-weight:900;margin-bottom:8px;">Upload Master Peserta (XLSX)</div>
+                  <div class="grid2">
+                    <div>
+                      <label>Upload file master_peserta.xlsx</label>
+                      <input id="e_file" type="file" accept=".xlsx"/>
+                      <div class="small">Kolom wajib sesuai template: <b>nik,nama,jenis_pelatihan,tahun,lokasi_ojt,unit,region,group</b></div>
+                    </div>
+                    <div>
+                      <label>Template</label>
+                      <button class="btn" id="btn-e-template" type="button">Download Template</button>
+                      <div class="small">Pastikan file template ada di <b>./template/master_peserta.xlsx</b></div>
+                    </div>
+                  </div>
+
+                  <div class="actions mt">
+                    <button class="btn primary" id="btn-e-upload" type="button">Upload ke Server</button>
+                  </div>
+
+                  <div class="small" id="e_upload_info">-</div>
+                  <div id="e_upload_warnings" class="warnbox hidden"></div>
+                </div>
+
+                <!-- Auto-suggest dropdown (letakkan tepat setelah input #a_nik agar tampil rapi) -->
+                <div id="enroll-suggest" class="suggest hidden" style="position:relative;">
+                  <div id="enroll-suggest-list"
+                      style="position:absolute;z-index:50;left:0;right:0;top:6px;
+                              background:var(--card,#111827);border:1px solid rgba(255,255,255,.12);
+                              border-radius:12px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.35);">
+                  </div>
+                </div>
+              
+            </div>
+
+            <!-- DASHBOARD -->
+            <div class="apane" id="apane-dashboard">
+
+            <!-- ============ DAFTAR HADIR TRAINING ============ -->
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Daftar Hadir Kegiatan (Training)</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Tanggal</label>
+                    <input id="d_date" type="date"/>
+                </div>
+                <div>
+                    <label>Training Type</label>
+                    <select id="d_training_type">
+                    <option value="">Pilih…</option>
+                    <option>KLP1 AGRO</option>
+                    <option>KLP1 MILL</option>
+                    <option>KLP1 ADMN</option>
+                    <option>2nd Stream</option>
+                    <option>Uji Kompetensi</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Batch</label>
+                    <select id="d_group">
+                    <option value="">Pilih…</option>
+                    </select>
+                    <div class="small">Sumber: sheet <b>peserta</b> kolom <b>Batch</b>.</div>
+                </div>
+                <div>
+                    <label>Activity</label>
+                    <select id="d_activity">
+                    <option value="">Pilih…</option>
+                    <option>Sesi Kelas</option>
+                    <option>Field Day</option>
+                    <option>Uji Kompetensi</option>
+                    <option>Olahraga</option>
+                    <option>Makan</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Materi</label>
+                    <input id="d_material" type="text" placeholder="(opsional) harus sama dengan data attendance"/>
+                </div>
+                <div>
+                    <label>Lokasi</label>
+                    <input id="d_location" type="text" value="Seriang Training Center"/>
+                </div>
+                </div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-d-preview">Preview Daftar Hadir</button>
+                <button class="btn" id="btn-d-xlsx">Export XLSX</button>
+                <button class="btn" id="btn-d-pdf">Export PDF</button>
+                </div>
+
+                <div class="small" id="d_summary">-</div>
+
+                <div class="tablewrap mt">
+                <table class="tbl" id="d_table">
+                    <thead>
+                    <tr>
+                        <th>No</th><th>NIK</th><th>Nama Peserta</th><th>Estate</th><th>Region</th><th>Timestamp</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                </div>
+
+                <div class="small mt2">
+                Catatan: Timestamp diambil dari <b>attendance</b> (status <b>OK*</b>) sesuai filter.
+                </div>
+            </div>
+
+
+            <div class="box" id="reconcile-admin-box">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                <div style="font-weight:900;">Rekonsil Presensi</div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <label class="small" for="reconcile-filter-status" style="font-weight:700;">Filter Status</label>
+                  <select id="reconcile-filter-status" class="input" style="min-width:160px;max-width:220px;">
+                    <option value="PENDING" selected>Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="ALL">Semua</option>
+                  </select>
+                </div>
+                <div class="actions" style="margin:0;">
+                  <button class="btn" id="btn-reconcile-refresh" type="button">Refresh Rekonsil</button>
+                  <button class="btn" id="btn-reconcile-dup-preview" type="button">Cek Rekonsil Ganda</button>
+                  <button class="btn danger" id="btn-reconcile-dup-clean" type="button">Bersihkan Rekonsil Ganda</button>
+                  <button class="btn danger" id="btn-delete-failed-att" type="button">Hapus Data Gagal Attendance</button>
+                </div>
+              </div>
+              <div class="small" id="reconcile-summary">Belum memuat data rekonsil.</div>
+              <div class="small muted mt" id="reconcile-dup-summary">Belum cek data rekonsil ganda.</div>
+              <div class="tablewrap mt">
+                <table class="tbl" id="reconcile-table">
+                  <thead>
+                    <tr>
+                      <th>Waktu</th><th>NIK</th><th>Nama</th><th>Mode</th><th>Training Type</th><th>Activity</th><th>Gate Reason</th><th>Gate Direction</th><th>Status Gagal</th><th>Status Req</th><th>Catatan</th><th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- ============ MOBILITAS GATE ============ -->
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Laporan Mobilitas Peserta (Gate)</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Tanggal Mulai</label>
+                    <input id="g_start" type="date"/>
+                </div>
+                <div>
+                    <label>Tanggal Akhir</label>
+                    <input id="g_end" type="date"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Mode Laporan</label>
+                    <select id="g_view">
+                    <option value="daily">Rekap Harian (Semua Peserta)</option>
+                    <option value="person">Per Peserta (IN/OUT per hari)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Gate Reason (opsional)</label>
+                    <input id="g_reason" type="text" placeholder="Ibadah / OJT / Kerja / dll…"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt" id="g_person_wrap" style="display:none;">
+                <div>
+                    <label>NIK (wajib jika Per Peserta)</label>
+                    <input id="g_nik" type="text" placeholder="Ketik NIK atau nama…" list="dl_g_nik" autocomplete="off"/>
+                    <datalist id="dl_g_nik"></datalist>
+                    <div class="small" id="g_nik_hint" style="margin-top:6px;opacity:.85"></div>
+                </div>
+                <div>
+                    <label>Batch / Group (opsional)</label>
+                    <select id="g_group">
+                    <option value="">(opsional)</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-g-preview">Preview Mobilitas</button>
+                <button class="btn" id="btn-g-xlsx">Export XLSX</button>
+                <button class="btn" id="btn-g-pdf">Export PDF</button>
+                </div>
+
+                <div class="small" id="g_summary">-</div>
+
+                <div class="tablewrap mt">
+                <table class="tbl" id="g_table">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+                </div>
+            </div>
+
+            </div>
+
+            <!-- REKAP -->
+            <div class="apane" id="apane-rekap">
+              <div class="grid2">
+                <div>
+                  <label>Tanggal Mulai</label>
+                  <input id="r_start" type="date"/>
+                </div>
+                <div>
+                  <label>Tanggal Akhir</label>
+                  <input id="r_end" type="date"/>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="btn primary" id="btn-rekap">Ambil Rekap</button>
+                <button class="btn" id="btn-export">Export CSV</button>
+              </div>
+
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Ringkasan</div>
+                <div class="small" id="rekap-summary">-</div>
+              </div>
+
+              <div class="grid2">
+                <div class="box">
+                  <div style="font-weight:900;margin-bottom:8px;">By Status</div>
+                  <div id="rekap-status" class="small">-</div>
+                </div>
+                <div class="box">
+                  <div style="font-weight:900;margin-bottom:8px;">By Activity</div>
+                  <div id="rekap-activity" class="small">-</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- LOGS -->
+            <div class="apane" id="apane-logs">
+              <div class="grid2">
+                <div>
+                  <label>Tanggal Mulai</label>
+                  <input id="l_start" type="date"/>
+                </div>
+                <div>
+                  <label>Tanggal Akhir</label>
+                  <input id="l_end" type="date"/>
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <label>Limit (maks 2000)</label>
+                  <input id="l_limit" type="number" value="200"/>
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                  <button class="btn primary" id="btn-logs" style="width:100%;">Ambil Logs</button>
+                </div>
+              </div>
+
+              <div class="tablewrap">
+                <table class="tbl" id="logs-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th><th>NIK</th><th>Nama</th><th>Mode</th><th>Activity</th><th>Materi</th><th>Gate</th><th>Status</th><th>Dist(m)</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+
+              <div class="small mt2">Tip: untuk audit device binding, lihat kolom <b>device_id</b> di export CSV.</div>
+            </div>
+
+            <!-- SETTINGS -->
+            <div class="apane" id="apane-settings">
+            <div class="box">
+                <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">GeoFence</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Latitude (center)</label>
+                    <input id="s_lat" type="number" step="0.000001" placeholder="contoh: 0.958933"/>
+                </div>
+                <div>
+                    <label>Longitude (center)</label>
+                    <input id="s_lng" type="number" step="0.000001" placeholder="contoh: 111.889729"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Radius (meter)</label>
+                    <input id="s_radius" type="number" step="1" placeholder="contoh: 200"/>
+                </div>
+                <div>
+                    <label>Face Threshold (euclidean)</label>
+                    <input id="s_threshold" type="number" step="0.01" placeholder="contoh: 0.52"/>
+                </div>
+                </div>
+                </div>
+
+                <div class="box">
+                <div class="mt" style="font-weight:900;margin-bottom:8px;">Liveness Check</div>
+
+                <div class="grid2">
+                <div>
+                    <label>Aktifkan Liveness?</label>
+                    <select id="s_live_enabled">
+                    <option value="TRUE">TRUE</option>
+                    <option value="FALSE">FALSE</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label>Mode Liveness</label>
+                    <select id="s_live_mode">
+                    <option value="both">Keduanya (Blink / Gerakan)</option>
+                    <option value="blink">Kedipan Saja</option>
+                    <option value="turn">Gerakan Saja</option>
+                    </select>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>EAR Low (blink start)</label>
+                    <input id="s_ear_low" type="number" step="0.01" placeholder="contoh: 0.18"/>
+                </div>
+                <div>
+                    <label>EAR High (blink end)</label>
+                    <input id="s_ear_high" type="number" step="0.01" placeholder="contoh: 0.23"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Turn Threshold</label>
+                    <input id="s_turn_thresh" type="number" step="0.01" placeholder="contoh: 0.18"/>
+                </div>
+                <div>
+                    <label>Durasi Liveness (ms)</label>
+                    <input id="s_live_duration" type="number" step="100" placeholder="contoh: 3500"/>
+                </div>
+                </div>
+                </div>
+
+                <!-- ✅ Device Detection / Binding -->
+                <div class="box">
+                <div class="mt" style="font-weight:900;margin-bottom:8px;">Deteksi Device (Binding)</div>
+
+                <div class="grid2">
+                    <div>
+                    <label>Aktifkan Deteksi Device?</label>
+                    <select id="s_devdet_enabled">
+                        <option value="TRUE">TRUE</option>
+                        <option value="FALSE">FALSE</option>
+                    </select>
+                    <div class="hint small" style="margin-top:8px;">
+                        Jika FALSE: presensi tetap wajib geo-fence. Status akan menjadi
+                        <b>OK_DEFDEVICE</b> jika device sesuai default, atau <b>OK_ALTDEVICE</b> jika berbeda.
+                    </div>
+                    </div>
+
+                    <div>
+                    <label>Catatan</label>
+                    <div class="small">
+                        Jika TRUE: device wajib sama dengan default yang tersimpan di sheet <b>users.device_id</b>.
+                    </div>
+                    </div>
+                </div>
+                </div>
+
+                    <!-- =========================
+                    NAME TAG SETTINGS (PRINT + SLIDER BOUNDS)
+                    Letakkan di tab Settings Admin
+                    ========================= -->
+                <div class="mt">
+                  <label style="font-weight:900;">NameTag - Print Layout (Padding & Gap)</label>
+                  <div class="small">Atur jarak rapat/longgar saat cetak. Nilai mm. Simpan ke server.</div>
+
+                  <div class="grid2" style="gap:10px;margin-top:10px;">
+                    <div class="card" style="padding:10px;">
+                      <b>2up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_2up_cols" type="number" min="1" max="3" value="1"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_2up_pad" type="number" min="0" max="20" value="10"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_2up_gap" type="number" min="0" max="20" value="8"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>4up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_4up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_4up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_4up_gap" type="number" min="0" max="20" value="6"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>6up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_6up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_6up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_6up_gap" type="number" min="0" max="20" value="5"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>8up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_8up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_8up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_8up_gap" type="number" min="0" max="20" value="4"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>10up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_10up_cols" type="number" min="1" max="3" value="2"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_10up_pad" type="number" min="0" max="20" value="8"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_10up_gap" type="number" min="0" max="20" value="3"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>12up</b>
+                      <div class="nt-row"><span>Cols</span><input id="s_nt_12up_cols" type="number" min="1" max="3" value="3"></div>
+                      <div class="nt-row"><span>Pad (mm)</span><input id="s_nt_12up_pad" type="number" min="0" max="20" value="7"></div>
+                      <div class="nt-row"><span>Gap (mm)</span><input id="s_nt_12up_gap" type="number" min="0" max="20" value="3"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt">
+                  <label style="font-weight:900;">NameTag - Batas Slider (Min/Max/Default)</label>
+                  <div class="small">Agar admin bisa menentukan range adjust font/posisi tanpa ubah HTML.</div>
+
+                  <div class="grid2" style="gap:10px;margin-top:10px;">
+                    <div class="card" style="padding:10px;">
+                      <b>Header</b>
+                      <div class="nt-row"><span>Head FS min</span><input id="s_nt_head_fs_min" type="number" value="6"></div>
+                      <div class="nt-row"><span>Head FS max</span><input id="s_nt_head_fs_max" type="number" value="32"></div>
+                      <div class="nt-row"><span>Head FS def</span><input id="s_nt_head_fs_def" type="number" value="14"></div>
+
+                      <div class="nt-row"><span>Head Y min</span><input id="s_nt_head_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Head Y max</span><input id="s_nt_head_y_max" type="number" value="60"></div>
+                      <div class="nt-row"><span>Head Y def</span><input id="s_nt_head_y_def" type="number" value="0"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>Subheader</b>
+                      <div class="nt-row"><span>Sub FS min</span><input id="s_nt_sub_fs_min" type="number" value="6"></div>
+                      <div class="nt-row"><span>Sub FS max</span><input id="s_nt_sub_fs_max" type="number" value="32"></div>
+                      <div class="nt-row"><span>Sub FS def</span><input id="s_nt_sub_fs_def" type="number" value="12"></div>
+
+                      <div class="nt-row"><span>Sub Y min</span><input id="s_nt_sub_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Sub Y max</span><input id="s_nt_sub_y_max" type="number" value="100"></div>
+                      <div class="nt-row"><span>Sub Y def</span><input id="s_nt_sub_y_def" type="number" value="0"></div>
+                    </div>
+
+                    <div class="card" style="padding:10px;">
+                      <b>Nama & Foto</b>
+                      <div class="nt-row"><span>Name FS min</span><input id="s_nt_name_fs_min" type="number" value="6"></div>
+                      <div class="nt-row"><span>Name FS max</span><input id="s_nt_name_fs_max" type="number" value="100"></div>
+                      <div class="nt-row"><span>Name FS def</span><input id="s_nt_name_fs_def" type="number" value="44"></div>
+
+                      <div class="nt-row"><span>Name Y min</span><input id="s_nt_name_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Name Y max</span><input id="s_nt_name_y_max" type="number" value="80"></div>
+                      <div class="nt-row"><span>Name Y def</span><input id="s_nt_name_y_def" type="number" value="0"></div>
+
+                      <div class="nt-row"><span>Photo S min</span><input id="s_nt_photo_s_min" type="number" value="50"></div>
+                      <div class="nt-row"><span>Photo S max</span><input id="s_nt_photo_s_max" type="number" value="300"></div>
+                      <div class="nt-row"><span>Photo S def</span><input id="s_nt_photo_s_def" type="number" value="160"></div>
+
+                      <div class="nt-row"><span>Photo Y min</span><input id="s_nt_photo_y_min" type="number" value="-80"></div>
+                      <div class="nt-row"><span>Photo Y max</span><input id="s_nt_photo_y_max" type="number" value="80"></div>
+                      <div class="nt-row"><span>Photo Y def</span><input id="s_nt_photo_y_def" type="number" value="0"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-save-settings">Simpan Settings</button>
+                <button class="btn" id="btn-reload-settings">Reload</button>
+                </div>
+
+                <div class="small" id="settings-info">-</div>
+            </div>
+
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Ganti PIN Admin</div>
+
+                <div class="grid2">
+                <div>
+                    <label>PIN Lama</label>
+                    <input id="pin_old" type="password" placeholder="PIN lama"/>
+                </div>
+                <div>
+                    <label>PIN Baru</label>
+                    <input id="pin_new" type="password" placeholder="PIN baru (min 4)"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Ulangi PIN Baru</label>
+                    <input id="pin_new2" type="password" placeholder="ulang PIN baru"/>
+                </div>
+                <div style="display:flex;align-items:flex-end;">
+                    <button class="btn danger" id="btn-change-pin" style="width:100%;">Simpan PIN Baru</button>
+                </div>
+                </div>
+
+                <div class="small" id="pin-info">-</div>
+            </div>
+            </div>
+
+            <!-- TRAINING MASTER (CRUD) -->
+                  <div class="apane" id="apane-training">
+                    <div class="box">
+                      <div style="font-weight:900;margin-bottom:8px;">Master Training (Jenis Pelatihan & Kegiatan)</div>
+
+                      <input id="tm_id" type="hidden"/>
+
+                      <div class="grid2">
+                        <div>
+                          <label>Tipe</label>
+                          <select id="tm_kind">
+                            <option value="training_type">Jenis Pelatihan</option>
+                            <option value="activity">Kegiatan</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label>Status</label>
+                          <select id="tm_active">
+                            <option value="TRUE">Aktif</option>
+                            <option value="FALSE">Nonaktif</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="grid2">
+                        <div>
+                          <label>Nama</label>
+                          <input id="tm_name" type="text" placeholder="Mis: KLP1 AGRO / Sesi Kelas"/>
+                        </div>
+                        <div>
+                          <label>Urutan (sort)</label>
+                          <input id="tm_sort" type="number" min="0" step="1" placeholder="0"/>
+                          <div class="small">Angka kecil tampil duluan.</div>
+                        </div>
+                      </div>
+
+                      <div class="actions mt">
+                        <button class="btn primary" id="btn-tm-save" type="button">Simpan</button>
+                        <button class="btn" id="btn-tm-reset" type="button">Reset</button>
+                        <button class="btn" id="btn-tm-refresh" type="button">Refresh</button>
+                      </div>
+
+                      <div class="small" id="tm_info">-</div>
+                    </div>
+
+                    <div class="box mt">
+                      <div style="font-weight:900;margin-bottom:8px;">Jenis Pelatihan</div>
+                      <div class="tablewrap">
+                        <table class="tbl" id="tm_tbl_type">
+                          <thead>
+                            <tr><th>Nama</th><th>Sort</th><th>Aktif</th><th>Aksi</th></tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div class="box mt">
+                      <div style="font-weight:900;margin-bottom:8px;">Kegiatan</div>
+                      <div class="tablewrap">
+                        <table class="tbl" id="tm_tbl_act">
+                          <thead>
+                            <tr><th>Nama</th><th>Sort</th><th>Aktif</th><th>Aksi</th></tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
+            <!-- MATERI (CRUD) -->
+            <div class="apane" id="apane-materi">
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Tambah / Edit Materi</div>
+                <input type="hidden" id="m_id" value=""/>
+
+                <div class="grid2">
+                <div>
+                    <label>Nama Materi</label>
+                    <input id="m_name" type="text" placeholder="contoh: Pembibitan"/>
+                </div>
+                <div>
+                    <label>Tags (opsional; pisahkan ; atau ,)</label>
+                    <input id="m_tags" type="text" placeholder="contoh: agro;dasar"/>
+                </div>
+                </div>
+
+                <div class="grid2 mt">
+                <div>
+                    <label>Aktif?</label>
+                    <select id="m_active">
+                    <option value="TRUE">TRUE</option>
+                    <option value="FALSE">FALSE</option>
+                    </select>
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:10px;">
+                    <button class="btn primary" id="btn-m-save" style="width:100%;">Simpan</button>
+                    <button class="btn" id="btn-m-reset" style="width:100%;">Reset</button>
+                </div>
+                </div>
+
+                <div class="small" id="materi-info">-</div>
+            </div>
+
+            <div class="box">
+                <div style="font-weight:900;margin-bottom:8px;">Daftar Materi</div>
+
+                <div class="actions">
+                <button class="btn primary" id="btn-m-refresh">Refresh List</button>
+                </div>
+
+                <div class="tablewrap">
+                <table class="tbl" id="materi-table">
+                    <thead>
+                    <tr>
+                        <th>Nama</th><th>Tags</th><th>Active</th><th>Aksi</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                </div>
+
+                <div class="small mt2">Tip: Materi yang <b>active=TRUE</b> yang muncul di autosuggest peserta.</div>
+            </div>
+            </div>
+
+            <!-- NAMETAG -->
+            <div class="apane" id="apane-nametag">
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:10px;">Pengaturan Name Tag (disimpan di perangkat)</div>
+
+                <div class="grid2">
+                  <div>
+                    <label>Tipe Name Tag</label>
+                    <select id="nt_type">
+                      <option value="A">Tipe A (Tanpa Foto)</option>
+                      <option value="B">Tipe B (Dengan Foto)</option>
+                    </select>
+                    <div class="small">Tipe B akan mencoba mengambil foto peserta dari folder Drive berdasarkan NIK.</div>
+                  </div>
+
+                  <div>
+                    <label>Latar / Background</label>
+                    <select id="nt_bg">
+                      <option value="dark">Dark Pattern</option>
+                      <option value="green">Green Pattern</option>
+                      <option value="plain">Plain</option>
+                    </select>
+                    <div class="small">Nanti bisa Anda kembangkan jadi upload background custom.</div>
+                  </div>
+                </div>
+
+                <div class="grid2 mt">
+                  <div>
+                    <label>Nama Kegiatan</label>
+                    <input id="nt_event" type="text" placeholder="contoh: PRE KLP1 AGRO 18/2025"/>
+                  </div>
+                  <div>
+                    <label>Lokasi Kegiatan</label>
+                    <input id="nt_loc" type="text" placeholder="contoh: SERIANG TRAINING CENTER"/>
+                  </div>
+                </div>
+
+                <div class="grid2 mt">
+                  <div>
+                    <label>Tanggal Kegiatan</label>
+                    <input id="nt_date" type="text" placeholder="contoh: 1-5 Desember 2025"/>
+                  </div>
+
+                  <div>
+                    <label>Ukuran Cetak per A4</label>
+                    <select id="nt_layout">
+                      <option value="2up">2-up (2 nt per A4)</option>
+                      <option value="4up">4-up (4 nt per A4)</option>
+                      <option value="6up">6-up (6 nt per A4)</option>
+                      <option value="8up">8-up (8 nt per A4)</option>
+                      <option value="10up">10-up (10 nt per A4)</option>
+                      <option value="12up">12-up (12 nt per A4)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid2 mt">
+                  <div>
+                    <label>Logo (Pilih file)</label>
+                      <div class="row" style="gap:10px;align-items:center;">
+                        <input id="nt_logo_file" type="file" accept="image/*">
+                        <button class="btn" type="button" id="btn-nt-logo-clear">Hapus</button>
+                      </div>
+                      <div class="small" id="nt_logo_info">-</div>
+                      <input id="nt_logo" type="hidden" />
+                    <div class="small">Jika Anda ingin ambil dari Drive/Sheet juga bisa nanti.</div>
+                  </div>
+                  <div>
+                    <label>Co-Logo (Pilih file)</label>
+                      <div class="row" style="gap:10px;align-items:center;">
+                        <input id="nt_cologo_file" type="file" accept="image/*">
+                        <button class="btn" type="button" id="btn-nt-cologo-clear">Hapus</button>
+                      </div>
+                      <div class="small" id="nt_cologo_info">-</div>
+                      <input id="nt_cologo" type="hidden" />
+                  </div>
+                </div>
+
+                <div class="actions">
+                  <button class="btn primary" id="btn-nt-save">Simpan Setting</button>
+                  <button class="btn" id="btn-nt-send">Kirim ke Server</button>
+                </div>
+
+                <div class="small" id="nt_info">-</div>
+              </div>
+
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:10px;">Pilih Peserta (filter dari server)</div>
+
+                <div class="grid2">
+                  <div>
+                    <label>Training Type</label>
+                    <select id="nt_training_type">
+                      <option value="">Pilih Training Type…</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Batch</label>
+                    <select id="nt_group">
+                      <option value="">Pilih Batch…</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="actions">
+                  <button class="btn primary" id="btn-nt-load">Muat Peserta</button>
+                  <button class="btn" id="btn-nt-clear">Kosongkan Antrian Cetak</button>
+                  <button class="btn danger" id="btn-nt-resetlocal" type="button">Reset Pilihan</button>
+                </div>
+                <div class="small mt" id="nt_pick_info">-</div>
+
+                <div class="tablewrap">
+                  <table class="tbl" id="nt_table">
+                    <thead>
+                      <tr>
+                        <th>NIK</th><th>Nama</th><th>Batch</th><th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+
+                <div class="small mt">Klik <b>Tambah</b> untuk masuk antrian cetak.</div>
+              </div>
+
+              <div class="box">
+                <div style="font-weight:900;margin-bottom:10px;">Preview & Adjust</div>
+
+                <div class="grid2">
+                  <div>
+                    <label>Antrian Cetak</label>
+                    <div class="nt-queue" id="nt_queue"></div>
+                    <div class="small mt">Klik item antrian untuk preview.</div>
+
+                    <div class="mt">
+                      <label>Adjust Header (Event / Lokasi / Tanggal)</label>
+                      <div class="nt-sliders">
+                        <div class="nt-row"><span>Font Header</span><input id="nt_head_fs" type="range" min="6" max="32" value="14"></div>
+                        <div class="nt-row"><span>Header Y</span><input id="nt_head_y" type="range" min="-80" max="60" value="0"></div>
+
+                        <div class="nt-row"><span>Font Subheader</span><input id="nt_sub_fs" type="range" min="6" max="32" value="12"></div>
+                        <div class="nt-row"><span>Subheader Y</span><input id="nt_sub_y" type="range" min="-80" max="100" value="0"></div>
+                      </div>
+                    </div>
+
+                    <div class="mt">
+                      <label>Adjust Nama (Font / Posisi)</label>
+                      <div class="nt-sliders">
+                        <div class="nt-row"><span>Font Nama</span><input id="nt_name_fs" type="range" min="6" max="100" value="44"></div>
+                        <div class="nt-row"><span>Nama Y</span><input id="nt_name_y" type="range" min="-80" max="80" value="0"></div>
+                        <div class="nt-row"><span>Foto Size</span><input id="nt_photo_s" type="range" min="50" max="300" value="160"></div>
+                        <div class="nt-row"><span>Foto Y</span><input id="nt_photo_y" type="range" min="-80" max="80" value="0"></div>
+                      </div>
+                    </div>
+
+                    <div class="actions">
+                      <button class="btn primary" id="btn-nt-print">Cetak / Simpan PDF (A4)</button>
+                    </div>
+
+                    <div class="small">Cetak memakai dialog browser (Save as PDF). Layout A4 sudah disiapkan.</div>
+                  </div>
+
+                  <div>
+                    <label>Preview</label>
+                    <div class="nt-preview-wrap">
+                      <div id="nt_preview" class="nt-card nt-typeA nt-bg-dark">
+                        <!-- akan diisi via JS -->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+    <div><button class="btnx primary" id="btn-admin-open">Admin</button></div>
+
+    <footer class="foot">
+      <span class="small">© Training Center • Presensi</span>
+    </footer>
+  </div>
+
+  <!-- =========================================
+     CAMERA MODAL: PESERTA (FULL SCREEN)
+     ========================================= -->
+<div class="modal hidden cam-modal" id="pcam-modal" aria-hidden="true">
+  <div class="modal-card cam-modal-card">
+    <div class="modal-head cam-modal-head">
+  <div class="cam-head-left">
+    <div style="font-weight:900;" id="pcam-title">Kamera Presensi</div>
+    <!-- ✅ badge indikator konteks scan -->
+    <div id="scan-badge" class="badge mini neutral">SIAP</div>
+  </div>
+  <button class="btn ghost" id="btn-close-pcam" type="button">Tutup</button>
+</div>
+
+    <!-- result dipindah ke modal agar pesan terlihat saat scan -->
+    <div class="result" id="result-cam"></div>
+
+    <div class="camera cam-full">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+
+      <button id="btn-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
         </svg>
-      </a>
+      </button>
+    </div>
 
-      <hr />
+    <div class="actions">
+          <button id="btn-presensi" class="btn primary" disabled>Presensi</button>
+    </div>
 
-      <!-- Footer -->
-      <p class="footer-note">
-        Butuh bantuan atau ada pertanyaan?<br/>
-        Hubungi kami di <a href="mailto:info@kmpsatu.com">info@kmpsatu.com</a>
-      </p>
+    <div class="small" style="padding:12px 16px 18px;">
+      Tip: pastikan wajah memenuhi frame, cahaya cukup, dan jangan terlalu banyak bergerak.
+    </div>
+  </div>
+</div>
 
+
+<!-- =========================================
+     REKONSIL MODAL: PESERTA
+     ========================================= -->
+<div class="modal hidden" id="reconcile-modal" aria-hidden="true">
+  <div class="modal-card" style="max-width:560px;">
+    <div class="modal-head">
+      <div style="font-weight:900;">Ajukan Rekonsil Presensi</div>
+      <button class="btn ghost" id="btn-reconcile-close" type="button">Tutup</button>
+    </div>
+    <div class="small" id="reconcile-info" style="padding:4px 16px 0;">
+      Setelah 5 kali gagal scan, peserta dapat mengajukan rekonsil dengan NIK yang valid.
+    </div>
+    <div class="grid2" style="padding:16px;">
+      <div style="grid-column:1 / -1;">
+        <label>NIK Peserta</label>
+        <input id="reconcile-nik" type="text" placeholder="Masukkan NIK yang valid"/>
+      </div>
+      <div style="grid-column:1 / -1;">
+        <label>Catatan (opsional)</label>
+        <textarea id="reconcile-note" rows="3" placeholder="Misalnya: wajah sulit terbaca, pencahayaan kurang, dll"></textarea>
+      </div>
+    </div>
+    <div class="actions" style="padding:0 16px 16px;">
+      <button class="btn primary" id="btn-reconcile-submit" type="button">Ajukan Rekonsil</button>
+    </div>
+    <div class="result" id="reconcile-result" style="margin:0 16px 16px;"></div>
+  </div>
+</div>
+
+<!-- =========================================
+     CAMERA MODAL: ADMIN ENROLL (FULL SCREEN)
+     ========================================= -->
+<div class="modal hidden cam-modal" id="acam-modal" aria-hidden="true">
+  <div class="modal-card cam-modal-card">
+    <div class="modal-head cam-modal-head">
+      <div style="font-weight:900;">Kamera Enroll Admin</div>
+      <div>
+      <button class="btn ghost" id="btn-close-acam" type="button">Tutup</button>
+      </div>
+    </div>
+
+    <div class="result" id="admin-result"></div>
+
+    <div class="camera cam-full">
+      <video id="a_video" autoplay muted playsinline></video>
+      <canvas id="a_overlay"></canvas>
+
+      <button id="btn-a-cam-rotate" class="cam-rotate" type="button" aria-label="Ganti kamera" title="Ganti kamera">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 5v6h-6l2.2-2.2A6.99 6.99 0 0 0 12 6a7 7 0 1 0 6.32 9.5 1 1 0 1 0-1.86-.74A5 5 0 1 1 12 8c1.3 0 2.5.5 3.4 1.3L14 11h6V5z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="actions">
+        <button id="btn-enroll" class="btn primary">Simpan + Rekam Wajah</button>
+    </div>
+
+    <div class="small" style="padding:12px 16px 18px;">
+      Tip: saat enroll, pastikan wajah jelas & stabil selama multi-shot.
+    </div>
+  </div>
+</div>
+
+  <!-- ✅ GLOBAL BUSY OVERLAY (spinner layar) -->
+  <div id="busy-overlay" class="busy-overlay hidden" aria-hidden="true">
+    <div class="busy-box" role="status" aria-live="polite">
+      <div class="spin" aria-hidden="true"></div>
+      <div class="busy-text" id="busy-text">Memproses…</div>
     </div>
   </div>
 
   <script>
-    // Auto redirect countdown
-    var seconds = 15;
-    var el = document.getElementById('countdown');
-    var btn = document.getElementById('cta-btn');
-    var newUrl = 'https://presensi.kmpsatu.com';
-
-    var timer = setInterval(function () {
-      seconds--;
-      if (seconds > 0) {
-        el.textContent = seconds + ' detik';
-      } else {
-        clearInterval(timer);
-        el.textContent = 'Mengalihkan...';
-        window.location.href = newUrl;
-      }
-    }, 1000);
-
-    // If user clicks button, clear timer
-    btn.addEventListener('click', function () {
-      clearInterval(timer);
-    });
+  function show(el){ el.classList.remove('hidden'); el.setAttribute('aria-hidden','false'); }
+  function hide(el){ el.classList.add('hidden'); el.setAttribute('aria-hidden','true'); }
   </script>
-
+  <script src="./js/core/base.js"></script>
+  <script src="./js/core/api.js"></script>
+  <script src="./js/core/device.js"></script>
+  <script src="./js/core/busy.js"></script>
+  <script src="./js/core/face.js"></script>
+  <script src="./js/core/location_base.js"></script>
+  <script src="./js/core/geofence_core.js"></script>
+  <script src="./js/pages/geofence_admin.js"></script>
+  <script src="./js/core/mode.js"></script>
+  <script src="./js/core/status.js"></script>
+  <script src="./js/pages/camera.js"></script>
+  <script src="./js/pages/presensi.js"></script>
+  <script src="./js/pages/enroll.js"></script>
+  <script src="./js/core/admin_session.js"></script>
+  <script src="./js/pages/admin_reports.js"></script>
+  <script src="./js/pages/settings.js"></script>
+  <script src="./js/core/training_meta_public.js"></script>
+  <script src="./js/pages/training.js"></script>
+  <script src="./js/pages/materi.js"></script>
+  <script src="./js/pages/nametag.js"></script>
+  <script src="./js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Live Map - Presensi</title>
+  <link rel="stylesheet" href="./style.css"/>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Ctext y='54' x='6' font-size='56'%3E📸%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <style>
+    body{ background:#0b1220; color:#e5e7eb; }
+    .app{ max-width:1100px; margin:0 auto; padding:12px; }
+    .topbar2{ display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .title2{ font-weight:800; letter-spacing:.3px; }
+    .sub2{ opacity:.75; font-size:12px; }
+    #map{ height:70vh; min-height:420px; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.12); }
+    .panel{ margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; }
+    .card{ flex:1; min-width:260px; border-radius:16px; padding:10px 12px; border:1px solid rgba(255,255,255,.10); background:rgba(255,255,255,.04); }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .btnx{ border-radius:12px; padding:10px 12px; }
+    .small{ font-size:12px; opacity:.8; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; font-size:12px; }
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.05); font-size:12px; }
+    a{ color:#93c5fd; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar2">
+      <div>
+        <div class="title2">🗺️ Live Map Presensi</div>
+        <div class="sub2">Menampilkan posisi perangkat (terakhir update) & titik geofence yang terdaftar.</div>
+      </div>
+      <div class="row">
+        <span class="pill" id="conn-pill">⏳ Memuat…</span>
+        <button class="btnx" id="btn-center">Pusatkan ke Saya</button>
+        <a class="btnx ghost" href="./index.html">Kembali</a>
+      </div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="panel">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <div><b>Geofence Aktif</b> <span class="small" id="gf-count"></span></div>
+          <button class="btnx" id="btn-refresh">Refresh</button>
+        </div>
+        <div class="small">Sumber data: server (public) • cache di perangkat.</div>
+        <div class="mono" id="gf-list" style="margin-top:8px; max-height:170px; overflow:auto;"></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between;">
+          <div><b>Perangkat Online</b> <span class="small" id="dv-count"></span></div>
+          <span class="small" id="last-upd"></span>
+        </div>
+        <div class="small">Yang tampil adalah update lokasi terakhir (mis. per 25 detik) dari perangkat yang membuka aplikasi presensi.</div>
+        <div class="mono" id="dv-list" style="margin-top:8px; max-height:170px; overflow:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Minimal API helper (pakai localStorage override yg sama dengan app utama) -->
+  <script>
+    const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyB8tvXIAiAt6adyy3VoR8EE2YFwmBig5tuNPOKREP4HqVGKn_swzbR_vIY8wv-fD5X/exec';
+    const GAS_LS_KEY = 'presensi_gas_url';
+    function getApiUrl(){
+      const u = localStorage.getItem(GAS_LS_KEY);
+      return (u && /^https:\/\//i.test(u)) ? u : DEFAULT_GAS_URL;
+    }
+    async function api(action, payload={}){
+      const form = new URLSearchParams();
+      form.set('action', action);
+      form.set('payload', JSON.stringify(payload||{}));
+      const res = await fetch(getApiUrl(), { method:'POST', body: form });
+      const txt = await res.text();
+      try { return JSON.parse(txt); }
+      catch(e){ return { ok:false, error:'Non-JSON response', raw: txt.slice(0,400) }; }
+    }
+  </script>
+
+  <script src="./js/pages/live_map.js"></script>
+</body>
+</html>
